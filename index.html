@@ -130,6 +130,16 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .foot{max-width:1280px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom));font-size:12px;color:var(--muted);text-align:center}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 10px 10px 16px;box-shadow:0 10px 30px rgba(0,0,0,.18);font-weight:600;white-space:nowrap}
 .toast[hidden]{display:none}
+.muted{color:var(--muted);font-size:13px}
+.day{display:grid;grid-template-columns:86px 1fr auto;gap:10px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);font-size:14px}
+.day:last-child{border-bottom:0}
+.day .d{color:var(--muted);font-variant-numeric:tabular-nums}
+.day .bar{height:8px;border-radius:4px;background:var(--panel-2);overflow:hidden}
+.day .bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+.day .v{text-align:right;font-variant-numeric:tabular-nums;line-height:1.25}
+.day .v small{display:block;color:var(--muted);font-size:11px}
+.note .btn{margin-top:8px}
+#revRange{font-weight:600}
 @media (max-width:600px){
   .top{padding-left:12px;padding-right:12px}
   main{padding-left:12px;padding-right:12px}
@@ -153,6 +163,29 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   <div class="seg" id="tabs"></div>
 </div>
 <main>
+  <div id="revenueView" hidden>
+    <div class="searchrow">
+      <select id="revRange" class="btn" aria-label="기간">
+        <option value="7">최근 7일</option><option value="30" selected>최근 30일</option><option value="90">최근 90일</option><option value="month">이번 달</option><option value="lastmonth">지난달</option>
+      </select>
+      <button class="btn primary" id="revConnect">AdMob 불러오기</button>
+      <button class="btn" id="revCsv">CSV</button>
+    </div>
+    <div class="note" id="revNote">AdMob 계정의 Google 계정으로 연결하면 앱·광고 형식·일자별 예상 수익과 노출수가 나와요. 데이터는 읽기만 해요.</div>
+    <div class="chips" id="revChips"></div>
+    <div class="kpis" id="revKpis"></div>
+    <div class="layout">
+      <section class="card">
+        <div class="card-h"><h2>분류</h2><select id="revGroup" aria-label="분류 기준"><option value="app">앱별</option><option value="format">광고 형식별</option></select></div>
+        <div class="groups" id="revGroups"></div>
+      </section>
+      <section class="card">
+        <div class="card-h"><h2>일자별</h2><span class="muted" id="revSum"></span></div>
+        <div id="revDaily"></div>
+      </section>
+    </div>
+  </div>
+  <div id="dataView">
   <div id="note"></div>
   <div class="searchrow">
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="이름 · UID · 코드 검색" autocomplete="off"></div>
@@ -177,6 +210,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
       <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
       <div class="list" id="list"></div>
     </section>
+  </div>
   </div>
 </main>
 <footer class="foot" id="foot"></footer>

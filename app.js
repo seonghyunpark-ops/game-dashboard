@@ -2,11 +2,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
-const { SOURCES } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
+const { SOURCES, GOOGLE, ADMOB } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
+const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
+const REVENUE = "revenue";
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 100;
-const state = { src: load("src") || "seongsu", rows: {}, filters: {}, sort: null, unsub: null, stopSnap: null, shown: PAGE };
+const state = { src: load("src") || "seongsu", rows: {}, auth: {}, filters: {}, sort: null, unsub: null, stopSnap: null, shown: PAGE, rev: { rows: null, pick: null } };
 const apps = {};
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -44,6 +46,57 @@ function inferColumns(s, rows) {
   s.columns = columns;
   s.dateField ??= columns.find((c) => c.type === "date")?.key;
   s.stats ??= columns.filter((c) => c.type === "number").slice(0, 4).map((c) => c.key);
+}
+
+const AUTH_COLUMNS = [
+  { key: "authProvider", label: "로그인 방식", category: true },
+  { key: "authEmail", label: "로그인 이메일" },
+  { key: "authPlayGamesId", label: "Play 게임즈 ID" },
+  { key: "authCreatedAt", label: "계정 생성", type: "date" },
+  { key: "authLastLoginAt", label: "최근 로그인", type: "date" },
+  { key: "hasSave", label: "세이브 있음", type: "bool", category: true },
+];
+const PROVIDER_LABEL = { "playgames.google.com": "Play 게임즈", "google.com": "Google", password: "이메일", "apple.com": "Apple" };
+
+function authInfo(u) {
+  const ps = u.providerUserInfo || [];
+  const pg = ps.find((p) => p.providerId === "playgames.google.com");
+  return {
+    authProvider: ps.length ? ps.map((p) => PROVIDER_LABEL[p.providerId] || p.providerId).join("+") : "익명",
+    authEmail: u.email || ps.find((p) => p.email)?.email || "",
+    authPlayGamesId: pg?.rawId || "",
+    authCreatedAt: u.createdAt ? new Date(Number(u.createdAt)) : null,
+    authLastLoginAt: u.lastLoginAt ? new Date(Number(u.lastLoginAt)) : null,
+    authDisabled: !!u.disabled,
+  };
+}
+
+// 문서 ID(=UID) 기준으로 Authentication 정보를 붙이고, 세이브 문서가 없는 로그인 계정도 행으로 넣는다.
+function rowsOf(key) {
+  const rows = state.rows[key] || [];
+  const auth = state.auth[key];
+  if (!auth) return rows;
+  const seen = new Set();
+  const merged = rows.map((r) => { seen.add(r._id); return { ...r, ...(auth.get(r._id) || {}), hasSave: true }; });
+  for (const [uid, a] of auth) if (!seen.has(uid)) merged.push({ _id: uid, ...a, hasSave: false });
+  return merged;
+}
+
+async function joinAuth() {
+  const s = src();
+  const key = state.src;
+  try {
+    setStatus("로그인 정보 불러오는 중…");
+    const token = await G.getToken(GOOGLE.clientId, G.SCOPE_AUTH);
+    const users = await G.authUsers(token, s.firebase.projectId);
+    state.auth[key] = new Map(users.map((u) => [u.localId, authInfo(u)]));
+    s.columns = [...cols().filter((c) => !AUTH_COLUMNS.some((a) => a.key === c.key)), ...AUTH_COLUMNS];
+    setupControls();
+    setStatus(`로그인 계정 ${users.length.toLocaleString("ko-KR")}명 합침`, "live");
+    render();
+  } catch (e) {
+    setStatus(e.message, "err");
+  }
 }
 
 function toDate(v) {
@@ -92,10 +145,11 @@ function setStatus(text, cls) {
 
 function renderTabs() {
   $("tabs").innerHTML = "";
-  for (const [key, s] of Object.entries(SOURCES)) {
+  const tabs = [...Object.entries(SOURCES).map(([k, s]) => [k, s.label]), [REVENUE, "광고 수익"]];
+  for (const [key, label] of tabs) {
     const b = document.createElement("button");
     b.className = key === state.src ? "on" : "";
-    b.textContent = s.label;
+    b.textContent = label;
     b.onclick = () => switchSource(key);
     $("tabs").append(b);
   }
@@ -104,6 +158,18 @@ function renderTabs() {
 function switchSource(key) {
   state.src = key;
   save("src", key);
+  const rev = key === REVENUE;
+  $("revenueView").hidden = !rev;
+  $("dataView").hidden = rev;
+  if (rev) {
+    state.unsub?.();
+    state.unsub = null;
+    renderTabs();
+    $("authBtn").hidden = true;
+    setStatus(state.rev.rows ? "AdMob 불러옴" : "AdMob 연결 전", state.rev.rows ? "live" : "");
+    renderRevenue();
+    return;
+  }
   state.filters = {};
   state.sort = null;
   state.shown = PAGE;
@@ -129,8 +195,102 @@ function setupControls() {
   const note = [];
   if (!s.firebase.apiKey) note.push(`<b>${s.label}</b>: config.js 에 웹 앱 apiKey·appId 가 비어 있습니다.`);
   if (s.analyticsUrl) note.push(`플레이·클리어·광고 이벤트는 Google Analytics 에만 있어요. <a href="${s.analyticsUrl}" target="_blank" rel="noopener">Analytics 열기 →</a>`);
+  if (s.authJoin) note.push(state.auth[state.src]
+    ? `로그인 계정 ${state.auth[state.src].size.toLocaleString("ko-KR")}명의 이메일·로그인 방식·최근 로그인을 UID 기준으로 합쳐 보는 중이에요.`
+    : `UID에 맞는 로그인 정보(이메일·Play 게임즈 ID·최근 로그인)를 보려면 Firebase 프로젝트 소유 계정으로 연결하세요.<br><button class="btn" id="joinAuthBtn">로그인 정보 합치기</button>`);
   $("note").innerHTML = note.length ? `<div class="note">${note.join("<br>")}</div>` : "";
+  $("joinAuthBtn")?.addEventListener("click", joinAuth);
 }
+
+// ── 광고 수익(AdMob) ─────────────────────────────────────
+function revRange() {
+  const v = $("revRange").value;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (v === "month") return [new Date(today.getFullYear(), today.getMonth(), 1), today];
+  if (v === "lastmonth") return [new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 0)];
+  const from = new Date(today);
+  from.setDate(from.getDate() - Number(v) + 1);
+  return [from, today];
+}
+
+async function loadRevenue() {
+  try {
+    setStatus("AdMob 불러오는 중…");
+    const token = await G.getToken(GOOGLE.clientId, G.SCOPE_ADMOB);
+    const [from, to] = revRange();
+    state.rev.rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
+    setStatus(`AdMob · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
+    $("revNote").hidden = true;
+  } catch (e) {
+    setStatus(e.message, "err");
+    $("revNote").hidden = false;
+    $("revNote").textContent = `불러오지 못했어요: ${e.message}`;
+  }
+  renderRevenue();
+}
+
+const money = (n) => n.toLocaleString("ko-KR", { style: "currency", currency: ADMOB.currency, maximumFractionDigits: ADMOB.currency === "KRW" ? 0 : 2 });
+const int = (n) => n.toLocaleString("ko-KR");
+
+function sumRev(rows) {
+  const t = { earnings: 0, impressions: 0, clicks: 0, requests: 0, matched: 0 };
+  for (const r of rows) for (const k in t) t[k] += r[k];
+  return t;
+}
+
+function renderRevenue() {
+  const all = state.rev.rows || [];
+  const pick = state.rev.pick;
+  const rows = pick ? all.filter((r) => r[pick.key] === pick.value) : all;
+  const t = sumRev(rows);
+  $("revConnect").textContent = state.rev.rows ? "새로고침" : "AdMob 불러오기";
+  $("revChips").innerHTML = pick ? `<button class="chip" id="revClear">${pick.key === "app" ? "앱" : "형식"}: ${esc(pick.value)} ✕</button>` : "";
+  $("revClear")?.addEventListener("click", () => { state.rev.pick = null; renderRevenue(); });
+  $("revKpis").innerHTML = [
+    [money(t.earnings), "예상 수익"],
+    [int(t.impressions), "광고 노출(시청) 수"],
+    [int(t.clicks), `클릭 · CTR ${t.impressions ? ((t.clicks / t.impressions) * 100).toFixed(2) : 0}%`],
+    [money(t.impressions ? (t.earnings / t.impressions) * 1000 : 0), "eCPM(1천 회당)"],
+    [`${t.requests ? ((t.matched / t.requests) * 100).toFixed(1) : 0}%`, `매칭률 · 요청 ${int(t.requests)}`],
+  ].map(([b, s]) => `<div class="kpi"><b>${b}</b><small>${s}</small></div>`).join("");
+
+  const gk = $("revGroup").value;
+  const groups = new Map();
+  for (const r of all) { const g = groups.get(r[gk]) || []; g.push(r); groups.set(r[gk], g); }
+  const gs = [...groups].map(([v, rs]) => [v, sumRev(rs)]).sort((a, b) => b[1].earnings - a[1].earnings);
+  const gmax = Math.max(1e-9, ...gs.map(([, s]) => s.earnings));
+  $("revGroups").innerHTML = gs.map(([v, s]) =>
+    `<div class="g${pick?.key === gk && pick.value === v ? " on" : ""}" data-v="${esc(v)}"><span class="lbl">${esc(v || "(없음)")}</span><span class="n">${money(s.earnings)}</span><div class="track"><div class="fill" style="width:${(s.earnings / gmax) * 100}%"></div></div><small class="muted">노출 ${int(s.impressions)}</small></div>`).join("")
+    || `<div class="empty">${state.rev.rows ? "기간 내 데이터 없음" : "AdMob 을 불러오면 표시돼요"}</div>`;
+  $("revGroups").querySelectorAll(".g").forEach((el) => el.onclick = () => {
+    const v = el.dataset.v;
+    state.rev.pick = pick?.key === gk && pick.value === v ? null : { key: gk, value: v };
+    renderRevenue();
+  });
+
+  const days = new Map();
+  for (const r of rows) { const d = days.get(r.date) || []; d.push(r); days.set(r.date, d); }
+  const ds = [...days].map(([d, rs]) => [d, sumRev(rs)]).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const dmax = Math.max(1e-9, ...ds.map(([, s]) => s.earnings));
+  $("revSum").textContent = ds.length ? `${ds.length}일` : "";
+  $("revDaily").innerHTML = ds.map(([d, s]) =>
+    `<div class="day"><span class="d">${d.slice(5).replace("-", ".")} ${"일월화수목금토"[new Date(d).getDay()]}</span><span class="bar"><i style="width:${(s.earnings / dmax) * 100}%"></i></span><span class="v">${money(s.earnings)}<small>노출 ${int(s.impressions)}</small></span></div>`).join("")
+    || `<div class="empty">—</div>`;
+}
+
+$("revConnect").onclick = loadRevenue;
+$("revRange").onchange = () => { if (state.rev.rows) loadRevenue(); };
+$("revGroup").onchange = () => { state.rev.pick = null; renderRevenue(); };
+$("revCsv").onclick = () => {
+  const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const head = ["날짜", "앱", "광고 형식", `예상 수익(${ADMOB.currency})`, "노출", "클릭", "요청", "매칭 요청"];
+  const lines = [head.map(q).join(",")].concat((state.rev.rows || []).map((r) => [r.date, r.app, r.format, r.earnings, r.impressions, r.clicks, r.requests, r.matched].map(q).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv" }));
+  a.download = `admob_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+};
 
 function renderAuthBtn(user) {
   const b = $("authBtn");
@@ -179,7 +339,7 @@ $("authBtn").onclick = async () => {
 
 function filtered() {
   const s = src();
-  const rows = state.rows[state.src] || [];
+  const rows = rowsOf(state.src);
   const q = $("q").value.trim().toLowerCase();
   const from = $("from").value ? new Date($("from").value + "T00:00:00") : null;
   const to = $("to").value ? new Date($("to").value + "T23:59:59") : null;
@@ -280,7 +440,7 @@ function renderList(rows) {
 }
 
 function render() {
-  const all = state.rows[state.src] || [];
+  const all = rowsOf(state.src);
   const rows = filtered();
   renderFilters(all);
   renderKpis(rows, all);
@@ -329,8 +489,6 @@ $("foot").textContent = `버전 ${VERSION}`;
 setInterval(checkUpdate, 5 * 60 * 1000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
 
-if (!SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
+if (state.src !== REVENUE && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
-renderTabs();
-setupControls();
-connect();
+switchSource(state.src);

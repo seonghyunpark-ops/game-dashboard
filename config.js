@@ -2,7 +2,21 @@
 // 웹 apiKey 는 비밀값이 아니다. 접근 제한은 보안 규칙이 한다.
 // 새 앱은 label·firebase·collection 만 있어도 된다. columns·dateField·stats 를 빼면 데이터를 보고 자동 추정한다.
 // 옵션: titleKey(카드 제목 필드), stats(카드 숫자 칸), analyticsUrl(상단 안내 링크),
-//       columns[{ key, label, type: "number"|"date"|"bool", category: true(필터·분류 대상) }]
+//       columns[{ key, label, type: "number"|"date"|"bool", category: true(필터·분류 대상) }],
+//       authJoin: true(Firebase Authentication 사용자 정보를 문서 ID=UID 로 합쳐 보기)
+
+// Google Cloud 콘솔 > API 및 서비스 > 사용자 인증 정보 > OAuth 클라이언트 ID(웹). 승인된 JS 원본에 Pages 주소 등록.
+// 이 키로 받은 토큰은 브라우저 메모리에만 있고 읽기 전용 범위만 요청한다.
+export const GOOGLE = {
+  clientId: "",
+};
+
+// AdMob 수익 탭. publisherId 를 비우면 로그인한 계정의 첫 AdMob 계정을 쓴다.
+export const ADMOB = {
+  publisherId: "pub-8231952947410935",
+  currency: "KRW",
+};
+
 export const SOURCES = {
   seongsu: {
     label: "성수역",
@@ -17,6 +31,7 @@ export const SOURCES = {
     collection: "users",
     dateField: "updatedAt",
     titleKey: "displayName",
+    authJoin: true,
     stats: ["maxStage", "totalStars", "clientAdsWatched", "clientInterstitialAdsWatched"],
     columns: [
       { key: "_id", label: "UID" },
