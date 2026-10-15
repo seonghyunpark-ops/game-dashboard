@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Orders, enrollment and OAuth identities are accessed ONLY by the backend.
+    // The backend's service identity must separately receive least-privilege IAM.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    match /{report}/{document} {
+      allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];
+    }
+  }
+}

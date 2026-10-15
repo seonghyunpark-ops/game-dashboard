@@ -74,4 +74,34 @@ export const SOURCES = {
       { key: "used_at", label: "사용 시각", type: "date" },
     ],
   },
+  lumiclass: {
+  "label": "LumiClass 회원",
+  "firebase": {
+    "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
+    "authDomain": "lumiclass-ff4a6.firebaseapp.com",
+    "projectId": "lumiclass-ff4a6",
+    "appId": "1:239754447635:web:b8b6d9c41dbabf321d68e6"
+  },
+  "collection": "reporting_users"
+},
+  lumiclass_metrics: {
+  "label": "LumiClass 매출",
+  "firebase": {
+    "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
+    "authDomain": "lumiclass-ff4a6.firebaseapp.com",
+    "projectId": "lumiclass-ff4a6",
+    "appId": "1:239754447635:web:b8b6d9c41dbabf321d68e6"
+  },
+  "collection": "reporting_metrics"
+},
+  lumiclass_costs: {
+  "label": "LumiClass 비용",
+  "firebase": {
+    "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
+    "authDomain": "lumiclass-ff4a6.firebaseapp.com",
+    "projectId": "lumiclass-ff4a6",
+    "appId": "1:239754447635:web:b8b6d9c41dbabf321d68e6"
+  },
+  "collection": "reporting_costs"
+},
 };
