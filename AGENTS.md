@@ -5,6 +5,7 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 
 ## 파일
 - `config.js` — 앱(데이터 소스) 목록. **새 앱 추가는 여기에 항목 하나 추가하는 것으로 끝난다.**
+- `google.js` — Google OAuth 토큰(GIS, 메모리 보관)으로 AdMob 보고서·Firebase Authentication 사용자 목록을 읽는다. OAuth 클라이언트는 GCP 프로젝트 hazel-form-493202-a1(테스트 모드, 테스트 사용자만 로그인 가능).
 - `app.js` — 로그인, Firestore 실시간 구독(onSnapshot), 필터·분류·정렬·CSV, 컬럼 자동 추정, 새 버전 감지.
 - `index.html` — 레이아웃과 CSS(색은 `:root` 변수, 다크모드 포함). 900px 이하는 표 대신 카드 목록.
 - `version.json` — 저장소에는 `dev`. 배포 때 Actions 가 커밋 SHA 로 덮어쓴다. 직접 올릴 필요 없음.
