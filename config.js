@@ -8,7 +8,7 @@
 // Google Cloud 콘솔 > API 및 서비스 > 사용자 인증 정보 > OAuth 클라이언트 ID(웹). 승인된 JS 원본에 Pages 주소 등록.
 // 이 키로 받은 토큰은 브라우저 메모리에만 있고 읽기 전용 범위만 요청한다.
 export const GOOGLE = {
-  clientId: "",
+  clientId: "86068834992-picpdv7kt7npubtsg1imd6sc75m1b89j.apps.googleusercontent.com",
 };
 
 // AdMob 수익 탭. publisherId 를 비우면 로그인한 계정의 첫 AdMob 계정을 쓴다.
