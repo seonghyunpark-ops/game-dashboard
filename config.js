@@ -82,7 +82,22 @@ export const SOURCES = {
     "projectId": "lumiclass-ff4a6",
     "appId": "1:239754447635:web:b8b6d9c41dbabf321d68e6"
   },
-  "collection": "reporting_users"
+  "collection": "reporting_users",
+  columns: [
+    { key: "_id", label: "회원 ID" },
+    { key: "name", label: "이름" },
+    { key: "email", label: "이메일" },
+    { key: "role", label: "역할", category: true },
+    { key: "loginProviders", label: "로그인 방식", category: true },
+    { key: "createdAt", label: "가입일", type: "date" },
+    { key: "lastLoginAt", label: "최근 로그인", type: "date" },
+    { key: "creditBalance", label: "크레딧 잔액", type: "number" },
+    { key: "activeCourses", label: "수강 중", type: "number" },
+    { key: "totalOrders", label: "주문 수", type: "number" },
+    { key: "progressRecords", label: "학습 기록 수", type: "number" },
+    { key: "questionCount", label: "문의 수", type: "number" },
+    { key: "syncedAt", label: "동기화 시각", type: "date" },
+  ]
 },
   lumiclass_metrics: {
   "label": "LumiClass 매출",
@@ -103,5 +118,15 @@ export const SOURCES = {
     "appId": "1:239754447635:web:b8b6d9c41dbabf321d68e6"
   },
   "collection": "reporting_costs"
+},
+  aicena: {
+  "label": "AICENA",
+  "firebase": {
+    "apiKey": "AIzaSyDIJ7OpKGBvjt1GUhUVjYPEDEqN1UeU87c",
+    "authDomain": "aicena.firebaseapp.com",
+    "projectId": "aicena",
+    "appId": "1:213477347368:web:6a2f9299dbaa2b5052651d"
+  },
+  "collection": "accounts"
 },
 };
