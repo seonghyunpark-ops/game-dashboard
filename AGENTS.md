@@ -5,6 +5,8 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 
 ## 파일
 - `config.js` — 앱(데이터 소스) 목록. **새 앱 추가는 여기에 항목 하나 추가하는 것으로 끝난다.**
+- `session.js` — 관리 계정의 Google 로그인 한 번으로 프로젝트별 Firebase 세션을 연결한다. 같은 프로젝트의 탭은 세션을 공유하고, 전체 로그아웃 시 모든 앱 세션과 화면 캐시를 비운다. 허용 목록은 `config.js`의 `ADMIN_EMAILS`와 운영 Firestore 규칙에 함께 반영한다.
+- `session.test.mjs` — 통합 로그인·계정 차단·전체 로그아웃 회귀 검사(`node --test session.test.mjs`).
 - `google.js` — Google OAuth 토큰(GIS, 메모리 보관)으로 AdMob 보고서·Firebase Authentication 사용자 목록을 읽는다. OAuth 클라이언트는 GCP 프로젝트 hazel-form-493202-a1(테스트 모드, 테스트 사용자만 로그인 가능).
 - `app.js` — 로그인, Firestore 실시간 구독(onSnapshot), 필터·분류·정렬·CSV, 컬럼 자동 추정, 새 버전 감지.
 - `index.html` — 레이아웃과 CSS(색은 `:root` 변수, 다크모드 포함). 900px 이하는 표 대신 카드 목록.
@@ -18,7 +20,7 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 3. Authentication > 설정 > 승인된 도메인에 `seonghyunpark-ops.github.io` 추가.
    (Google Cloud 프로젝트 IAM 에 theantplay55@gmail.com 을 소유자로 두면 로그인 정보 합치기도 그 계정으로 가능)
 4. Firestore 규칙에 소유자 읽기 추가(아래 이메일만):
-   `allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];`
+   `allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com', 'lee.ike1@gmail.com'];`
 5. `config.js` 의 `SOURCES` 에 항목 추가:
    ```js
    newgame: {

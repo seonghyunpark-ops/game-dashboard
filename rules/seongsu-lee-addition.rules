@@ -1,0 +1,1 @@
+match /users/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email == 'lee.ike1@gmail.com'; }

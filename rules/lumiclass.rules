@@ -9,5 +9,7 @@ service cloud.firestore {
     match /{report}/{document} {
       allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];
     }
+    match /{report}/{document} { allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email == 'lee.ike1@gmail.com'; }
+
   }
 }

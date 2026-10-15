@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signedIn(){return request.auth != null;}
+  function admin(){return signedIn() && request.auth.token.admin == true;}
+  match /videos/{id} {
+   allow read: if resource.data.published == true || admin();
+   allow create, delete: if false;
+   // Publishing a new Bunny video is handled by the verified server function.
+   allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','subtitle','description','creator','genre','image','accent','badge','isShort','published']) && request.resource.data.title is string && request.resource.data.title.size() <= 120;
+  }
+  match /settings/site {allow read: if true;allow write: if admin() && request.resource.data.keys().hasAll(['brand','accent','heroId','contestOpen']) && request.resource.data.brand is string && request.resource.data.accent is string && request.resource.data.contestOpen is bool;}
+  match /submissions/{id} {allow read: if admin() || (signedIn() && resource.data.ownerId == request.auth.uid);allow write: if false;}
+  match /users/{uid}/library/{id} {
+   allow read, delete: if signedIn() && request.auth.uid == uid;
+   allow create, update: if signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['saved','seconds','duration','updatedAt']) && request.resource.data.saved is bool && request.resource.data.seconds is number && request.resource.data.seconds >= 0 && request.resource.data.duration is number && request.resource.data.duration >= request.resource.data.seconds && request.resource.data.updatedAt is number;
+  }
+  match /{document=**} {allow read, write: if false;}
+    match /accounts/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com', 'lee.ike1@gmail.com']; }
+
+ }
+}

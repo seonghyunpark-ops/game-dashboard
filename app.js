@@ -1,26 +1,37 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
-const { SOURCES, GOOGLE, ADMOB } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
+const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
+const { createSession } = await import(`./session.js?v=${encodeURIComponent(VERSION)}`);
 const REVENUE = "revenue";
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 100;
 const state = { src: load("src") || "seongsu", rows: {}, auth: {}, filters: {}, sort: null, unsub: null, stopSnap: null, shown: PAGE, rev: { rows: null, pick: null } };
-const apps = {};
+let connection = 0;
+const session = createSession({
+  sources: SOURCES,
+  allowedEmails: ADMIN_EMAILS,
+  sdk: {
+    create(config, id) { const app = initializeApp(config, id); return { auth: getAuth(app), db: getFirestore(app) }; },
+    popup: (auth) => signInWithPopup(auth, new GoogleAuthProvider()),
+    credential: (result) => GoogleAuthProvider.credential(null, GoogleAuthProvider.credentialFromResult(result)?.accessToken),
+    signIn: signInWithCredential,
+    signOut,
+    watch: onAuthStateChanged,
+  },
+  onChange() {
+    state.rows = {}; state.auth = {}; state.rev.rows = null;
+    G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
+    renderAuthBtn(session.user());
+    if (state.src !== REVENUE) connect(); else renderRevenue();
+  },
+});
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function save(k, v) { try { localStorage.setItem(k, v); } catch {} }
-
-function appFor(key) {
-  if (!apps[key]) {
-    const app = initializeApp(SOURCES[key].firebase, key);
-    apps[key] = { auth: getAuth(app), db: getFirestore(app) };
-  }
-  return apps[key];
-}
 
 const src = () => SOURCES[state.src];
 const cols = () => src().columns || [];
@@ -86,9 +97,12 @@ async function joinAuth() {
   const s = src();
   const key = state.src;
   try {
+    const owner = session.user();
+    if (!owner) throw new Error("관리 계정으로 먼저 로그인해 주세요.");
     setStatus("로그인 정보 불러오는 중…");
     const token = await G.getToken(GOOGLE.clientId, G.SCOPE_AUTH);
     const users = await G.authUsers(token, s.firebase.projectId);
+    if (session.user()?.uid !== owner.uid) return;
     state.auth[key] = new Map(users.map((u) => [u.localId, authInfo(u)]));
     s.columns = [...cols().filter((c) => !AUTH_COLUMNS.some((a) => a.key === c.key)), ...AUTH_COLUMNS];
     setupControls();
@@ -162,10 +176,12 @@ function switchSource(key) {
   $("revenueView").hidden = !rev;
   $("dataView").hidden = rev;
   if (rev) {
+    connection++;
     state.unsub?.();
     state.unsub = null;
     renderTabs();
-    $("authBtn").hidden = true;
+    $("authBtn").hidden = false;
+    renderAuthBtn(session.user());
     setStatus(state.rev.rows ? "AdMob 불러옴" : "AdMob 연결 전", state.rev.rows ? "live" : "");
     renderRevenue();
     return;
@@ -216,10 +232,14 @@ function revRange() {
 
 async function loadRevenue() {
   try {
+    const owner = session.user();
+    if (!owner) throw new Error("관리 계정으로 먼저 로그인해 주세요.");
     setStatus("AdMob 불러오는 중…");
     const token = await G.getToken(GOOGLE.clientId, G.SCOPE_ADMOB);
     const [from, to] = revRange();
-    state.rev.rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
+    const rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
+    if (session.user()?.uid !== owner.uid) return;
+    state.rev.rows = rows;
     setStatus(`AdMob · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
     $("revNote").hidden = true;
   } catch (e) {
@@ -305,7 +325,8 @@ function renderAuthBtn(user) {
   }
 }
 
-function connect() {
+async function connect() {
+  const ticket = ++connection;
   state.unsub?.();
   state.unsub = null;
   const key = state.src;
@@ -313,28 +334,32 @@ function connect() {
   render();
   if (!s.firebase.apiKey) { setStatus("설정 필요", "err"); $("authBtn").hidden = true; return; }
   $("authBtn").hidden = false;
-  const { auth, db } = appFor(key);
-  const stopAuth = onAuthStateChanged(auth, (user) => {
-    if (key !== state.src) return;
-    renderAuthBtn(user);
-    state.stopSnap?.();
-    state.stopSnap = null;
-    if (!user) { setStatus("로그인 필요"); render(); return; }
+  renderAuthBtn(session.user());
+  if (!session.user()) { setStatus("관리 계정 로그인 필요"); render(); return; }
+  try {
+    const { db } = await session.ensure(key);
+    if (ticket !== connection || key !== state.src) return;
     setStatus("연결 중…");
     state.stopSnap = onSnapshot(collection(db, s.collection), (snap) => {
+      if (ticket !== connection || !session.user()) return;
       state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
       if (!s.columns && state.rows[key].length) { inferColumns(s, state.rows[key]); setupControls(); }
       setStatus(`실시간 · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
       render();
-    }, (err) => setStatus(err.code === "permission-denied" ? "권한 없음" : err.message, "err"));
-  });
-  state.unsub = () => { stopAuth(); state.stopSnap?.(); state.stopSnap = null; };
+    }, (err) => { if (ticket === connection) setStatus(err.code === "permission-denied" ? "이 앱의 읽기 권한이 없습니다" : err.message, "err"); });
+    state.unsub = () => { state.stopSnap?.(); state.stopSnap = null; };
+  } catch (e) { if (ticket === connection) setStatus(e.message, "err"); }
 }
 
 $("authBtn").onclick = async () => {
-  const { auth } = appFor(state.src);
-  if (auth.currentUser) { if (confirm(`${auth.currentUser.email} 로그아웃할까요?`)) await signOut(auth); }
-  else await signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => setStatus(e.message, "err"));
+  try {
+    if (session.user()) {
+      if (confirm(`${session.user().email} · 전체 앱에서 로그아웃할까요?`)) await session.logout();
+    } else {
+      const failures = await session.login();
+      if (failures.length) setStatus(`일부 앱 연결 실패: ${failures.map((f) => `${SOURCES[f.key].label} (${f.message})`).join(" · ")}`, "err");
+    }
+  } catch (e) { setStatus(e.message, "err"); }
 };
 
 function filtered() {

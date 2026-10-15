@@ -17,6 +17,14 @@ export const ADMOB = {
   currency: "KRW",
 };
 
+// UI gate only. Firestore rules enforce the same verified-email list server-side.
+export const ADMIN_EMAILS = [
+  "seonghyun.park@theant.kr",
+  "psh920122@gmail.com",
+  "theantplay55@gmail.com",
+  "lee.ike1@gmail.com",
+];
+
 export const SOURCES = {
   seongsu: {
     label: "성수역",
