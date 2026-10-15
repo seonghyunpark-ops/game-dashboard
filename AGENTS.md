@@ -46,3 +46,9 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 - LumiClass `lumiclass-ff4a6` / `reporting_users`, `reporting_metrics`, `reporting_costs` — 비밀번호가 없는 보고용 컬렉션만 읽는다.
 - AICENA `aicena` / `accounts/{uid}` — Google 제공자와 대시보드 도메인 설정 완료. 현재 데이터는 비어 있음.
 - 2026-10-15: 검증된 관리 이메일 4개에 대시보드 읽기 허용(이집트는 DB 미생성으로 운영 규칙 게시 대상 없음). 성수역·LumiClass·AICENA 게시 사본은 `rules/`에 보존. 기존 게임 클라이언트 규칙은 변경하지 않았다.
+
+## 통합 Google 로그인 운영 설정
+- 2026-10-16: 성수역·이집트·LumiClass·AICENA의 Firebase Google 제공자는 공통 웹 클라이언트 `86068834992-1oeh3vg3mjtr8qs5tgb4tuaehc15qpn5.apps.googleusercontent.com`을 사용한다. 소유 프로젝트는 `hazel-form-493202-a1`이다. 서로 다른 클라이언트를 사용하면 대시보드의 공통 Google 토큰이 다른 프로젝트에서 `access_token audience is not for this project`로 거절될 수 있다.
+- 공통 클라이언트의 기존 리디렉션 URI를 보존하고 각 앱의 `https://<project-id>.firebaseapp.com/__/auth/handler`를 함께 등록한다. 2026-10-16 사용자가 AICENA·LumiClass·이집트 콜백 추가 저장을 완료했다.
+- Google 제공자의 클라이언트 비밀값은 Google 설정 사이에서만 전달한다. 파일·로그·저장소에 저장하지 않는다. `config.js`의 별도 Google API 클라이언트(광고 수익·Authentication 목록용)와 혼동하지 않는다.
+- Google 프로젝트 조회 API의 `clientId` 검사 결과만으로 외부 클라이언트의 실제 Firebase 로그인을 판정하지 않는다. 대시보드에서 실제 Google 로그인 후 프로젝트별 세션 연결과 Firestore 조회를 검증한다.
