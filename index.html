@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="게임 대시보드">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>게임 데이터 대시보드</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -122,6 +127,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .gmore{display:none;margin:0 16px 14px;width:calc(100% - 32px)}
 @media (max-width:900px){.gmore{display:block}}
 .gmore[hidden]{display:none!important}
+.foot{max-width:1280px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom));font-size:12px;color:var(--muted);text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 10px 10px 16px;box-shadow:0 10px 30px rgba(0,0,0,.18);font-weight:600;white-space:nowrap}
+.toast[hidden]{display:none}
 @media (max-width:600px){
   .top{padding-left:12px;padding-right:12px}
   main{padding-left:12px;padding-right:12px}
@@ -171,6 +179,13 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
     </section>
   </div>
 </main>
-<script type="module" src="app.js"></script>
+<footer class="foot" id="foot"></footer>
+<div class="toast" id="updateToast" hidden><span>새 버전이 나왔어요</span><button class="btn primary" id="updateBtn">업데이트</button></div>
+<script type="module">
+let v = "dev";
+try { v = (await (await fetch("version.json?t=" + Date.now(), { cache: "no-store" })).json()).version || "dev"; } catch {}
+window.__APP_VERSION__ = v;
+await import(`./app.js?v=${encodeURIComponent(v)}`);
+</script>
 </body>
 </html>

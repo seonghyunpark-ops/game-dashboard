@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { SOURCES } from "./config.js";
+const VERSION = window.__APP_VERSION__ || "dev";
+const { SOURCES } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 100;
@@ -20,7 +21,30 @@ function appFor(key) {
 }
 
 const src = () => SOURCES[state.src];
-const colOf = (k) => src().columns.find((c) => c.key === k);
+const cols = () => src().columns || [];
+const colOf = (k) => cols().find((c) => c.key === k);
+
+// config 에 columns 가 없으면 실제 문서를 보고 컬럼·타입·분류 여부를 추정한다.
+function inferColumns(s, rows) {
+  const sample = rows.slice(0, 300);
+  const keys = [...new Set(sample.flatMap((r) => Object.keys(r)))].filter((k) => k !== "_id");
+  const isDateStr = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v);
+  const columns = [{ key: "_id", label: "ID" }];
+  for (const key of keys) {
+    const vals = sample.map((r) => r[key]).filter((v) => v != null && v !== "");
+    let type;
+    if (vals.length && vals.every((v) => typeof v === "boolean")) type = "bool";
+    else if (vals.length && vals.every((v) => typeof v === "number")) type = "number";
+    else if (vals.length && vals.every((v) => typeof v?.toDate === "function" || isDateStr(v))) type = "date";
+    else if (vals.some((v) => typeof v === "object")) continue;
+    const distinct = new Set(vals.map(String)).size;
+    const category = type === "bool" || (!type && distinct > 0 && distinct <= 30 && distinct < Math.max(2, sample.length / 2));
+    columns.push({ key, label: key, ...(type && { type }), ...(category && { category: true }) });
+  }
+  s.columns = columns;
+  s.dateField ??= columns.find((c) => c.type === "date")?.key;
+  s.stats ??= columns.filter((c) => c.type === "number").slice(0, 4).map((c) => c.key);
+}
 
 function toDate(v) {
   if (v == null || v === "") return null;
@@ -91,12 +115,12 @@ function switchSource(key) {
 
 function setupControls() {
   const s = src();
-  const cats = s.columns.filter((c) => c.category);
+  const cats = cols().filter((c) => c.category);
   $("groupBy").innerHTML = cats.map((c) => `<option value="${c.key}">${c.label}별</option>`).join("");
-  $("groupBy").value = (cats.find((c) => !c.type) || cats[0]).key;
-  const sortable = s.columns.filter((c) => c.type === "number" || c.type === "date");
+  if (cats.length) $("groupBy").value = (cats.find((c) => !c.type) || cats[0]).key;
+  const sortable = cols().filter((c) => c.type === "number" || c.type === "date");
   $("sortSel").innerHTML = `<option value="">기본 순서</option>` + sortable.map((c) => `<option value="${c.key}">${c.label} 높은순</option>`).join("");
-  $("thead").innerHTML = "<tr>" + s.columns.map((c) => `<th data-k="${c.key}">${c.label}</th>`).join("") + "</tr>";
+  $("thead").innerHTML = "<tr>" + cols().map((c) => `<th data-k="${c.key}">${c.label}</th>`).join("") + "</tr>";
   $("thead").querySelectorAll("th").forEach((th) => th.onclick = () => {
     const k = th.dataset.k;
     state.sort = state.sort?.key === k ? { key: k, dir: -state.sort.dir } : { key: k, dir: -1 };
@@ -139,6 +163,7 @@ function connect() {
     setStatus("연결 중…");
     state.stopSnap = onSnapshot(collection(db, s.collection), (snap) => {
       state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+      if (!s.columns && state.rows[key].length) { inferColumns(s, state.rows[key]); setupControls(); }
       setStatus(`실시간 · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
       render();
     }, (err) => setStatus(err.code === "permission-denied" ? "권한 없음" : err.message, "err"));
@@ -159,7 +184,7 @@ function filtered() {
   const from = $("from").value ? new Date($("from").value + "T00:00:00") : null;
   const to = $("to").value ? new Date($("to").value + "T23:59:59") : null;
   let out = rows.filter((r) => {
-    if (q && !s.columns.some((c) => String(r[c.key] ?? "").toLowerCase().includes(q))) return false;
+    if (q && !cols().some((c) => String(r[c.key] ?? "").toLowerCase().includes(q))) return false;
     if (from || to) {
       const d = toDate(r[s.dateField]);
       if (!d || (from && d < from) || (to && d > to)) return false;
@@ -178,7 +203,7 @@ function filtered() {
 function renderFilters(all) {
   const s = src();
   $("catFilters").innerHTML = "";
-  for (const col of s.columns.filter((c) => c.category)) {
+  for (const col of cols().filter((c) => c.category)) {
     const counts = new Map();
     all.forEach((r) => { const v = catValue(r, col); counts.set(v, (counts.get(v) || 0) + 1); });
     const label = document.createElement("label");
@@ -200,7 +225,7 @@ function renderFilters(all) {
 
 function renderKpis(rows, all) {
   const cards = [[rows.length.toLocaleString("ko-KR"), rows.length === all.length ? "전체" : `필터 결과 · 전체 ${all.length.toLocaleString("ko-KR")}`]];
-  for (const c of src().columns.filter((c) => c.type === "number")) {
+  for (const c of cols().filter((c) => c.type === "number")) {
     const vals = rows.map((r) => Number(r[c.key])).filter((n) => !isNaN(n));
     const sum = vals.reduce((a, b) => a + b, 0);
     cards.push([sum.toLocaleString("ko-KR"), `${c.label} 합계 · 평균 ${vals.length ? (sum / vals.length).toFixed(1) : 0}`]);
@@ -209,7 +234,8 @@ function renderKpis(rows, all) {
 }
 
 function renderGroups(rows) {
-  const gcol = colOf($("groupBy").value) || src().columns.find((c) => c.category);
+  const gcol = colOf($("groupBy").value) || cols().find((c) => c.category);
+  if (!gcol) { $("groups").innerHTML = `<div class="empty">데이터 없음</div>`; $("gmore").hidden = true; return; }
   const groups = new Map();
   rows.forEach((r) => { const v = catValue(r, gcol); groups.set(v, (groups.get(v) || 0) + 1); });
   const max = Math.max(1, ...groups.values());
@@ -235,14 +261,14 @@ function cell(r, c) {
 function renderTable(rows) {
   const s = src();
   $("thead").querySelectorAll("th").forEach((th) => th.className = state.sort?.key === th.dataset.k ? "sorted" : "");
-  $("tbody").innerHTML = rows.slice(0, state.shown).map((r) => "<tr>" + s.columns.map((c) =>
+  $("tbody").innerHTML = rows.slice(0, state.shown).map((r) => "<tr>" + cols().map((c) =>
     `<td class="${c.type === "number" ? "num" : ""}">${cell(r, c)}</td>`).join("") + "</tr>").join("");
 }
 
 function renderList(rows) {
   const s = src();
   const stats = (s.stats || []).map(colOf);
-  const tags = s.columns.filter((c) => c.category && !(s.stats || []).includes(c.key));
+  const tags = cols().filter((c) => c.category && !(s.stats || []).includes(c.key));
   const html = rows.slice(0, state.shown).map((r) => {
     const title = r[s.titleKey] || r._id;
     const sub = title !== r._id ? `<div class="item-id">${esc(r._id)}</div>` : "";
@@ -277,7 +303,7 @@ function render() {
 $("csv").onclick = () => {
   const s = src();
   const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
-  const lines = [s.columns.map((c) => q(c.label)).join(",")].concat(filtered().map((r) => s.columns.map((c) => q(fmt(r[c.key], c))).join(",")));
+  const lines = [cols().map((c) => q(c.label)).join(",")].concat(filtered().map((r) => cols().map((c) => q(fmt(r[c.key], c))).join(",")));
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv" }));
   a.download = `${state.src}_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -290,6 +316,18 @@ $("sortSel").onchange = () => { state.sort = $("sortSel").value ? { key: $("sort
 $("groupBy").addEventListener("change", render);
 $("gmore").onclick = () => { $("groups").classList.toggle("open"); render(); };
 $("reset").onclick = () => { state.filters = {}; $("q").value = $("from").value = $("to").value = ""; render(); };
+
+async function checkUpdate() {
+  if (VERSION === "dev") return;
+  try {
+    const { version } = await (await fetch(`version.json?t=${Date.now()}`, { cache: "no-store" })).json();
+    if (version && version !== VERSION) $("updateToast").hidden = false;
+  } catch {}
+}
+$("updateBtn").onclick = () => location.reload();
+$("foot").textContent = `버전 ${VERSION}`;
+setInterval(checkUpdate, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
 
 if (!SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";

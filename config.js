@@ -1,5 +1,8 @@
 // Firebase 콘솔 > 프로젝트 설정 > 내 앱 > 웹 앱(</>) 등록 후 apiKey·appId 를 채운다.
 // 웹 apiKey 는 비밀값이 아니다. 접근 제한은 보안 규칙이 한다.
+// 새 앱은 label·firebase·collection 만 있어도 된다. columns·dateField·stats 를 빼면 데이터를 보고 자동 추정한다.
+// 옵션: titleKey(카드 제목 필드), stats(카드 숫자 칸), analyticsUrl(상단 안내 링크),
+//       columns[{ key, label, type: "number"|"date"|"bool", category: true(필터·분류 대상) }]
 export const SOURCES = {
   seongsu: {
     label: "성수역",
