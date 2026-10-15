@@ -13,6 +13,8 @@ export const SOURCES = {
     },
     collection: "users",
     dateField: "updatedAt",
+    titleKey: "displayName",
+    stats: ["maxStage", "totalStars", "clientAdsWatched", "clientInterstitialAdsWatched"],
     columns: [
       { key: "_id", label: "UID" },
       { key: "displayName", label: "이름" },
@@ -41,6 +43,8 @@ export const SOURCES = {
     },
     collection: "coupons",
     dateField: "created_at",
+    titleKey: "_id",
+    stats: ["coin", "dia"],
     columns: [
       { key: "_id", label: "쿠폰 코드" },
       { key: "coin", label: "코인", type: "number" },
