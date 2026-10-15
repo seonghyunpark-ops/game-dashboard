@@ -4,12 +4,12 @@ export const SOURCES = {
   seongsu: {
     label: "성수역",
     firebase: {
-      apiKey: "",
+      apiKey: "AIzaSyDgrLtBoKcah93Zl0iXOkw55dlR4T_71kc",
       authDomain: "hazel-form-493202-a1.firebaseapp.com",
       projectId: "hazel-form-493202-a1",
       storageBucket: "hazel-form-493202-a1.firebasestorage.app",
       messagingSenderId: "86068834992",
-      appId: "",
+      appId: "1:86068834992:web:198ac589d4bff29bb78175",
     },
     collection: "users",
     dateField: "updatedAt",
@@ -34,10 +34,10 @@ export const SOURCES = {
   egypt: {
     label: "이집트 디펜스",
     firebase: {
-      apiKey: "",
+      apiKey: "AIzaSyAnFXanb40Q7EiFNxWx0FCMKidIt1xvHuM",
       authDomain: "egyptdefense-b6882.firebaseapp.com",
       projectId: "egyptdefense-b6882",
-      appId: "",
+      appId: "1:926622019971:web:e7a86f0d96fb4eba2046b6",
     },
     collection: "coupons",
     dateField: "created_at",
