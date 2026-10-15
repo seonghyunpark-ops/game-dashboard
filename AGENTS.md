@@ -16,8 +16,9 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 1. 해당 Firebase 프로젝트에 웹 앱 등록 → apiKey·appId 확보.
 2. Authentication > 로그인 방법 > Google 사용 설정.
 3. Authentication > 설정 > 승인된 도메인에 `seonghyunpark-ops.github.io` 추가.
+   (Google Cloud 프로젝트 IAM 에 theantplay55@gmail.com 을 소유자로 두면 로그인 정보 합치기도 그 계정으로 가능)
 4. Firestore 규칙에 소유자 읽기 추가(아래 이메일만):
-   `allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com'];`
+   `allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];`
 5. `config.js` 의 `SOURCES` 에 항목 추가:
    ```js
    newgame: {
