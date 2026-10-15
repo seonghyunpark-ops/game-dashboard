@@ -42,3 +42,7 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 ## 현재 데이터 소스
 - 성수역 `hazel-form-493202-a1` / `users/{uid}` — 세이브 요약(최고 스테이지·별·광고·버전·플랫폼·언어). Analytics 이벤트(ss_*)는 GA4 에만 있어 여기서 못 읽는다.
 - 이집트 디펜스 `egyptdefense-b6882` / `coupons/{code}` — Firestore DB 가 아직 생성되지 않아 비어 있음.
+
+- LumiClass `lumiclass-ff4a6` / `reporting_users`, `reporting_metrics`, `reporting_costs` — 비밀번호가 없는 보고용 컬렉션만 읽는다.
+- AICENA `aicena` / `accounts/{uid}` — Google 제공자와 대시보드 도메인 설정 완료. 현재 데이터는 비어 있음.
+- 2026-10-15: 검증된 관리 이메일 4개에 대시보드 읽기 허용(이집트는 DB 미생성으로 운영 규칙 게시 대상 없음). 성수역·LumiClass·AICENA 게시 사본은 `rules/`에 보존. 기존 게임 클라이언트 규칙은 변경하지 않았다.

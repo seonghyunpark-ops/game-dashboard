@@ -1,0 +1,111 @@
+// Firestore Security Rules — users 컬렉션 (CloudSave + 식별/환경 필드 + createdAt 보호)
+//
+// 사용법: Firebase Console → Firestore → 규칙 탭에 그대로 붙여넣고 게시(Publish).
+// 적용 순서가 중요합니다. **반드시** 새 클라이언트 빌드 배포보다 먼저 또는 동시에 게시하세요.
+//
+// 키 정책
+//  ─ 클라가 갱신해도 되는 키: maxStage, totalStars, clientAdsWatched, clientInterstitialAdsWatched,
+//                              createdAt, updatedAt, lastSignInAt,
+//                              displayName, playGamesPlayerId, appVersion, platform, locale,
+//                              lastSignInRouteCategory/Code/CapturedAt,
+//                              firstSignInRouteCategory/Code/CapturedAt
+//  ─ 클라 직접 변경 금지(서버/관리자만): adsWatched, noAdsPurchased
+//  ─ 통계용 clientAdsWatched / clientInterstitialAdsWatched: 클라가 증가 가능(변조 가능). adsWatched는 정식 검증용으로 유지.
+//  ─ 정책: createdAt 변경 금지 / adsWatched·noAdsPurchased 클라 변경 금지 / 키 화이트리스트만 허용
+//  ─ 본인 문서만 read/write
+//  ─ 대역폭 절감: lastSignInRouteDetail/Flags 및 firstSignInRouteDetail/Flags 4개 필드는
+//                 더 이상 클라가 쓰지 않고, FirebaseCloudSaveBootstrap이 다음 update에서
+//                 FieldValue.Delete()로 청소합니다. 새 빌드 배포 후 본 규칙을 게시하세요.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      // 모든 허용 키 (클라 + 서버 통합)
+      // 주의: lastSignInRouteDetail / Flags / firstSignInRouteDetail / Flags 는 의도적으로 제거.
+      //  - 클라는 다음 update에서 FieldValue.Delete() 센티넬을 보내 잔여 필드를 청소합니다.
+      //  - 청소 update 자체는 해당 키들이 결과 문서에 남지 않으므로 hasOnly() 검사 통과.
+      //  - 빌드(>=0.1.59 권장)를 먼저 배포한 다음 본 규칙을 게시하면 단계적 마이그레이션이 됩니다.
+      function allowedKeys() {
+        return [
+          'maxStage', 'totalStars',
+          'clientAdsWatched', 'clientInterstitialAdsWatched',
+          'adsWatched', 'noAdsPurchased',
+          'createdAt', 'updatedAt', 'lastSignInAt',
+          'displayName', 'playGamesPlayerId',
+          'appVersion', 'platform', 'locale',
+          'lastSignInRouteCategory', 'lastSignInRouteCode', 'lastSignInRouteCapturedAt',
+          'firstSignInRouteCategory', 'firstSignInRouteCode', 'firstSignInRouteCapturedAt'
+        ];
+      }
+
+      // 본인 문서만 읽기
+      allow read: if isOwner();
+      allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];
+
+      // 신규 가입(create)
+      //  - 키는 화이트리스트 안에서만
+      //  - 시간 키 3종 필수
+      //  - 결제·광고 보상 카운터는 클라 초기값(0/false)으로 강제
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly(allowedKeys())
+        && 'createdAt'    in request.resource.data
+        && 'updatedAt'    in request.resource.data
+        && 'lastSignInAt' in request.resource.data
+        && request.resource.data.maxStage is int
+        && request.resource.data.totalStars is int
+        // clientAdsWatched 는 선택값(옛 클라/이행기 호환). 있을 때만 int>=0 체크.
+        && (
+             !('clientAdsWatched' in request.resource.data)
+             || (request.resource.data.clientAdsWatched is int && request.resource.data.clientAdsWatched >= 0)
+           )
+        // clientInterstitialAdsWatched 도 동일 정책(옵셔널 + int>=0).
+        && (
+             !('clientInterstitialAdsWatched' in request.resource.data)
+             || (request.resource.data.clientInterstitialAdsWatched is int && request.resource.data.clientInterstitialAdsWatched >= 0)
+           )
+        && request.resource.data.adsWatched == 0
+        && request.resource.data.noAdsPurchased == false;
+
+      // 갱신(update)
+      //  - 키는 화이트리스트 안에서만
+      //  - createdAt 변경 금지 (legacy 문서로 createdAt이 없었던 경우엔 새로 채워 넣는 것 1회 허용)
+      //  - adsWatched / noAdsPurchased는 클라가 못 바꿈 (서버 함수에서만 갱신)
+      //  - clientAdsWatched / clientInterstitialAdsWatched 는 있을 때만 int>=0 체크(옛 클라 빌드 호환)
+      allow update: if isOwner()
+        && request.resource.data.keys().hasOnly(allowedKeys())
+        && (
+             !('clientAdsWatched' in request.resource.data)
+             || (request.resource.data.clientAdsWatched is int && request.resource.data.clientAdsWatched >= 0)
+           )
+        && (
+             !('clientInterstitialAdsWatched' in request.resource.data)
+             || (request.resource.data.clientInterstitialAdsWatched is int && request.resource.data.clientInterstitialAdsWatched >= 0)
+           )
+        && (
+             ('createdAt' in resource.data)
+             ? request.resource.data.createdAt == resource.data.createdAt
+             : true
+           )
+        && request.resource.data.adsWatched     == resource.data.adsWatched
+        && request.resource.data.noAdsPurchased == resource.data.noAdsPurchased;
+
+      // 클라이언트의 직접 삭제 금지 (필요 시 콘솔/관리자 SDK로)
+      allow delete: if false;
+    }
+
+    // 다른 컬렉션은 명시적으로 허용하기 전까지 모두 거부
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    match /users/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email == 'lee.ike1@gmail.com'; }
+
+  }
+}
