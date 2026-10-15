@@ -1,0 +1,55 @@
+// Firebase 콘솔 > 프로젝트 설정 > 내 앱 > 웹 앱(</>) 등록 후 apiKey·appId 를 채운다.
+// 웹 apiKey 는 비밀값이 아니다. 접근 제한은 보안 규칙이 한다.
+export const SOURCES = {
+  seongsu: {
+    label: "성수역",
+    firebase: {
+      apiKey: "",
+      authDomain: "hazel-form-493202-a1.firebaseapp.com",
+      projectId: "hazel-form-493202-a1",
+      storageBucket: "hazel-form-493202-a1.firebasestorage.app",
+      messagingSenderId: "86068834992",
+      appId: "",
+    },
+    collection: "users",
+    dateField: "updatedAt",
+    columns: [
+      { key: "_id", label: "UID" },
+      { key: "displayName", label: "이름" },
+      { key: "playGamesPlayerId", label: "Play Games ID" },
+      { key: "maxStage", label: "최고 스테이지", type: "number", category: true },
+      { key: "totalStars", label: "별", type: "number" },
+      { key: "clientAdsWatched", label: "보상광고", type: "number" },
+      { key: "clientInterstitialAdsWatched", label: "전면광고", type: "number" },
+      { key: "noAdsPurchased", label: "광고제거", type: "bool", category: true },
+      { key: "appVersion", label: "버전", category: true },
+      { key: "platform", label: "플랫폼", category: true },
+      { key: "locale", label: "언어", category: true },
+      { key: "lastSignInRouteCategory", label: "로그인 경로", category: true },
+      { key: "createdAt", label: "가입", type: "date" },
+      { key: "updatedAt", label: "최근 저장", type: "date" },
+    ],
+    analyticsUrl: "https://console.firebase.google.com/project/hazel-form-493202-a1/analytics",
+  },
+  egypt: {
+    label: "이집트 디펜스",
+    firebase: {
+      apiKey: "",
+      authDomain: "egyptdefense-b6882.firebaseapp.com",
+      projectId: "egyptdefense-b6882",
+      appId: "",
+    },
+    collection: "coupons",
+    dateField: "created_at",
+    columns: [
+      { key: "_id", label: "쿠폰 코드" },
+      { key: "coin", label: "코인", type: "number" },
+      { key: "dia", label: "다이아", type: "number" },
+      { key: "memo", label: "메모", category: true },
+      { key: "used", label: "사용됨", type: "bool", category: true },
+      { key: "used_by", label: "사용자" },
+      { key: "created_at", label: "발급", type: "date" },
+      { key: "used_at", label: "사용 시각", type: "date" },
+    ],
+  },
+};

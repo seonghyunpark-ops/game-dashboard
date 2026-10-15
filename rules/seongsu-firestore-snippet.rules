@@ -1,0 +1,13 @@
+// 성수역(hazel-form-493202-a1) 현재 규칙은 로컬에 없어 전체 파일 대신 추가분만 둔다.
+// Firebase 콘솔 > Firestore > 규칙에서 기존 match /users/{uid} 는 그대로 두고 아래 두 덩어리를 추가한다.
+// 규칙은 OR 로 합쳐지므로 기존 "본인 문서 읽기/쓰기" 허용은 그대로 유지된다.
+
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'OWNER_EMAIL'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner();
+    }

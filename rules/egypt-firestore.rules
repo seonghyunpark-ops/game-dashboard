@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 대시보드 소유자. OWNER_EMAIL 을 본인 Google 계정으로 바꾼다.
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'OWNER_EMAIL'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /coupons/{code} {
+      allow get: if true;
+      allow list: if isOwner();
+      allow create, delete: if false;
+      allow update: if resource.data.used == false
+        && request.resource.data.used == true
+        && request.resource.data.used_at is timestamp
+        && request.resource.data.used_by is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'used_at', 'used_by']);
+    }
+  }
+}
