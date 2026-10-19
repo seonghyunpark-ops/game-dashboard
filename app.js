@@ -584,6 +584,9 @@ function renderFinance() {
   const b = report?.bunny;
   const details = b ? [`Bunny 계정 청구 집계만 총합에 반영합니다. 아래는 체험·크레딧을 적용하지 않은 앱별 사용 원가 추정이며 중복 합산하지 않습니다.`, ...b.apps.map(a => `${a.app}: 저장 ${(a.storageBytes/1e9).toFixed(3)} GB · 전송 ${(a.bandwidthBytes/1e9).toFixed(3)} GB · 저장 ${fm(a.storageUsd,'USD')} + 전송 ${fm(a.deliveryUsd,'USD')} = ${fm(a.estimatedUsd,'USD')} 추정 (${a.regions}개 지역, $${a.storageUsdPerGbMonth}/GB·월)`), `Bunny 잔액: ${b.balance == null ? '미확인' : fm(b.balance,'USD')} · 체험 잔액: ${b.trialBalance == null ? '미확인' : fm(b.trialBalance,'USD')} · 체험 종료: ${b.trialUntil || '미확인'}. 잔액·충전액·크레딧을 사용료에 더하지 않습니다.`] : [];
   details.push(report?.firebase?.note || 'Firebase / Google Cloud: 결제 내보내기 첫 데이터 수신 대기. 함수·Firestore·Hosting 등 프로젝트별 GCP 서비스 비용과 크레딧을 함께 집계합니다.');
+  const ad=report?.admob,adTime=ad?.checkedAt?.toDate?.();
+  details.push('Bunny·Firebase 매시간 자동 수집 · 화면은 새 집계 수신 시 자동 반영됩니다.');
+  if(ad) details.push(`광고 수익: ${ad.automatic ? '매시간 자동 수집' : '직접 조회'} · 마지막 성공 ${adTime ? adTime.toLocaleString('ko-KR') : '미확인'}${ad.syncStatus==='error' ? ' · '+ad.syncNote : ''}`);
   $('financeDetails').innerHTML = details.map(t => `<p>${esc(t)}</p>`).join('');
 }
 $('financeMonth').value = load('financeMonth') || new Date().toISOString().slice(0,7);

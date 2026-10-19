@@ -19,6 +19,10 @@ export const ADMOB = {
 
 // UI gate only. Firestore rules enforce the same verified-email list server-side.
 export const ADMIN_EMAILS = [
+  "hc.lee@theant.kr",
+  "hyunjin.kim@theant.kr",
+  "juyi.kim@theant.kr",
+  "hyerin.kim@theant.kr",
   "seonghyun.park@theant.kr",
   "psh920122@gmail.com",
   "theantplay55@gmail.com",
