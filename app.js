@@ -345,6 +345,8 @@ $("revCsv").onclick = () => {
 function renderAuthBtn(user) {
   const b = $("authBtn");
   if (user) {
+    // 클릭 전에 준비해 브라우저가 인증 팝업을 사용자 동작으로 인식하게 합니다.
+    void G.prepareGoogle().catch(() => {});
     b.className = "avatar";
     b.title = `${user.email} · 눌러서 로그아웃`;
     b.innerHTML = user.photoURL ? `<img src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc((user.email || "?")[0].toUpperCase());

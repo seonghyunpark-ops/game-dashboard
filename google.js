@@ -5,14 +5,16 @@ const tokens = {};
 
 function loadGis() {
   gisLoaded ??= new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { gisLoaded = null; reject(new Error('Google 인증 스크립트 응답이 늦습니다. 다시 시도해 주세요.')); }, 20000);
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client";
-    s.onload = resolve;
-    s.onerror = () => reject(new Error("Google 로그인 스크립트를 불러오지 못했어요"));
+    s.onload = () => { clearTimeout(timer); resolve(); };
+    s.onerror = () => { clearTimeout(timer); gisLoaded = null; reject(new Error("Google 로그인 스크립트를 불러오지 못했어요")); };
     document.head.append(s);
   });
   return gisLoaded;
 }
+export const prepareGoogle = () => loadGis();
 
 export async function getToken(clientId, scope, { prompt = "" } = {}) {
   const t = tokens[scope];
@@ -20,16 +22,20 @@ export async function getToken(clientId, scope, { prompt = "" } = {}) {
   if (!clientId) throw new Error("config.js 의 GOOGLE.clientId 가 비어 있어요");
   await loadGis();
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => { settled = true; reject(new Error('Google 인증이 완료되지 않았습니다. 팝업 허용 후 다시 연결해 주세요.')); }, 90000);
     const client = google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope,
       prompt,
       callback: (r) => {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
         if (r.error) return reject(new Error(r.error_description || r.error));
         tokens[scope] = { value: r.access_token, exp: Date.now() + r.expires_in * 1000 };
         resolve(r.access_token);
       },
-      error_callback: (e) => reject(new Error(e.message || e.type)),
+      error_callback: (e) => { settled = true; clearTimeout(timer); reject(new Error(e.message || e.type)); },
     });
     client.requestAccessToken();
   });
