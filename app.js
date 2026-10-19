@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, initializeAuth, browserSessionPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
 const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
@@ -15,7 +15,6 @@ const $ = (id) => document.getElementById(id);
 const PAGE = 100;
 const state = { src: load("src") || "seongsu", rows: {}, profiles: {}, auth: {}, filters: {}, sort: null, unsub: null, shown: PAGE, rev: { rows: null, pick: null } };
 let connection = 0;
-let adToken = null, adEpoch = 0;
 const session = createSession({
   sources: SOURCES,
   allowedEmails: ADMIN_EMAILS,
@@ -28,26 +27,18 @@ const session = createSession({
     watch: onAuthStateChanged,
   },
   onChange() {
-    adToken = null; adEpoch++;
     state.rows = {}; state.profiles = {}; state.auth = {}; state.rev.rows = null; state.rev.finance = null;
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
     renderAuthBtn(session.user());
     financeStop?.(); financeStop = null; financeReports = {}; financeGeneration++;
-    if (!FINANCE.includes(state.src)) connect(); else if (state.src === REVENUE) renderRevenue(); else connectFinance();
+    if (!FINANCE.includes(state.src)) connect(); else connectFinance();
   },
 });
-// 광고 계정 선택이 대시보드의 관리 계정이나 다른 앱 세션을 바꾸지 않게 분리합니다.
-const adAuth = initializeAuth(initializeApp(SOURCES.seongsu.firebase, 'admob-authorization'), { persistence: browserSessionPersistence, popupRedirectResolver: browserPopupRedirectResolver });
-async function getAdToken() {
-  const owner = session.user();
-  if (!owner) throw Error('관리 계정으로 먼저 로그인해 주세요.');
-  if (adToken?.owner === owner.uid && adToken.exp > Date.now()) return adToken.value;
-  const provider = new GoogleAuthProvider();
-  provider.addScope(G.SCOPE_ADMOB);
-  provider.setCustomParameters({ prompt: 'select_account' });
-  sessionStorage.setItem('admob.authorization', JSON.stringify({ owner: owner.uid, view: state.src, month: $('financeMonth').value, range: $('revRange').value, expires: Date.now() + 10 * 60_000 }));
-  await signInWithRedirect(adAuth, provider);
-  throw Error('Google 인증 페이지로 이동 중입니다.');
+function startAdAuthorization(month) {
+  if (!session.user()) throw Error('관리 계정으로 먼저 로그인해 주세요.');
+  if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) throw Error('집계 월을 선택해 주세요.');
+  save('financeMonth',month);
+  location.assign('https://blaiva.com/finance-auth.html?month='+encodeURIComponent(month));
 }
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -228,6 +219,7 @@ function switchSource(key) {
     renderAuthBtn(session.user());
     setStatus(state.rev.rows ? "AdMob 불러옴" : "AdMob 연결 전", state.rev.rows ? "live" : "");
     renderRevenue();
+    connectFinance();
     return;
   }
   state.filters = {};
@@ -275,24 +267,8 @@ function revRange() {
 }
 
 async function loadRevenue() {
-  try {
-    const owner = session.user();
-    if (!owner) throw new Error("관리 계정으로 먼저 로그인해 주세요.");
-    setStatus("AdMob 불러오는 중…");
-    const token = await getAdToken();
-    const [from, to] = revRange();
-    const rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
-    if (session.user()?.uid !== owner.uid) return;
-    state.rev.rows = rows;
-    setStatus(`AdMob · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
-    $("revNote").hidden = true;
-  } catch (e) {
-    setStatus(e.message, "err");
-    $("revNote").hidden = false;
-    $("revNote").textContent = `불러오지 못했어요: ${e.message}`;
-  }
-  renderRevenue();
-  renderFinance();
+  try { const [from]=revRange(); startAdAuthorization(`${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}`); }
+  catch(e) { setStatus(e.message,'err'); }
 }
 
 const money = (n) => n.toLocaleString("ko-KR", { style: "currency", currency: ADMOB.currency, maximumFractionDigits: ADMOB.currency === "KRW" ? 0 : 2 });
@@ -345,7 +321,7 @@ function renderRevenue() {
 }
 
 $("revConnect").onclick = loadRevenue;
-$("revRange").onchange = () => { if (state.rev.rows) loadRevenue(); };
+$("revRange").onchange = updateStoredRevenue;
 $("revGroup").onchange = () => { state.rev.pick = null; renderRevenue(); };
 $("revCsv").onclick = () => {
   const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
@@ -577,9 +553,16 @@ async function connectFinance() {
     financeStop = onSnapshot(collection(db, 'financeReports'), snap => {
       if (ticket !== financeGeneration || !session.user()) return;
       financeReports = Object.fromEntries(snap.docs.map(d => [d.id, d.data()])); financeError = '';
-      setStatus('재무 데이터 연결됨', 'live'); renderFinance();
+      setStatus('재무 데이터 연결됨', 'live'); renderFinance(); updateStoredRevenue();
     }, e => { financeError = `재무 조회 실패: ${e.code}`; renderFinance(); });
   } catch(e) { financeError = e.message; renderFinance(); }
+}
+function updateStoredRevenue() {
+  const [from]=revRange(),month=`${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}`;
+  state.rev.rows=financeReports[month]?.admob?.rows||null;
+  $('revNote').hidden=false;
+  $('revNote').textContent=state.rev.rows ? `${month} AdMob 예상 수익 · 조회 결과를 회사 재무 대시보드에서 읽기 전용으로 표시합니다.` : `${month} 광고 수익을 연결하면 표시됩니다. 조회되지 않은 수익은 0원이 아닙니다.`;
+  renderRevenue();
 }
 function financeData() {
   const month = $('financeMonth').value;
@@ -603,21 +586,10 @@ function renderFinance() {
   details.push(report?.firebase?.note || 'Firebase / Google Cloud: 결제 내보내기 첫 데이터 수신 대기. 함수·Firestore·Hosting 등 프로젝트별 GCP 서비스 비용과 크레딧을 함께 집계합니다.');
   $('financeDetails').innerHTML = details.map(t => `<p>${esc(t)}</p>`).join('');
 }
-$('financeMonth').value = new Date().toISOString().slice(0,7);
-$('financeMonth').onchange = renderFinance;
+$('financeMonth').value = load('financeMonth') || new Date().toISOString().slice(0,7);
+$('financeMonth').onchange = () => {save('financeMonth',$('financeMonth').value);renderFinance();};
 $('financeAd').onclick = async () => {
-  const owner = session.user(), month = $('financeMonth').value;
-  if (!owner) { financeError = '관리 계정으로 먼저 로그인해 주세요.'; renderFinance(); return; }
-  $('financeAd').disabled = true;
-  try {
-    const token = await getAdToken();
-    const [y,m] = month.split('-').map(Number), from = new Date(y,m-1,1), to = new Date(Math.min(Date.now(),new Date(y,m,0).getTime()));
-    if (from > to) throw Error('미래 월은 조회할 수 없습니다.');
-    const rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
-    if (session.user()?.uid !== owner.uid) return;
-    state.rev.finance = { month, rows }; financeError = '';
-  } catch(e) { financeError = `광고 수익 조회 실패: ${e.message}`; }
-  finally { $('financeAd').disabled = false; renderFinance(); }
+  try { startAdAuthorization($('financeMonth').value); } catch(e) { financeError=e.message;renderFinance(); }
 };
 $('financeCsv').onclick = () => {
   const q = v => `"${String(v).replace(/"/g,'""')}"`;
@@ -627,21 +599,3 @@ $('financeCsv').onclick = () => {
 if (!FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
 switchSource(state.src);
-async function resumeAdAuthorization() {
-  const raw = sessionStorage.getItem('admob.authorization');
-  if (!raw) return;
-  try {
-    const pending = JSON.parse(raw);
-    await session.client('seongsu').auth.authStateReady();
-    if (pending.expires < Date.now() || session.user()?.uid !== pending.owner) throw Error('관리 계정이 변경됐거나 인증 시간이 지났습니다. 다시 연결해 주세요.');
-    const result = await getRedirectResult(adAuth);
-    if (!result?.user?.emailVerified || !ADMIN_EMAILS.includes(result.user.email?.toLowerCase())) throw Error('지정된 관리 계정으로 Google 인증을 완료해 주세요.');
-    const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
-    if (!token) throw Error('Google 광고 조회 토큰을 받지 못했습니다. 다시 연결해 주세요.');
-    adToken = { value: token, owner: pending.owner, exp: Date.now() + 30 * 60_000 };
-    $('financeMonth').value = pending.month; $('revRange').value = pending.range;
-    if (pending.view === REVENUE) await loadRevenue(); else await $('financeAd').onclick();
-  } catch(e) { financeError = `광고 인증 실패: ${e.message}`; renderFinance(); setStatus(financeError,'err'); }
-  finally { sessionStorage.removeItem('admob.authorization'); await signOut(adAuth); }
-}
-void resumeAdAuthorization();
