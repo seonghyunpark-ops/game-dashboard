@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, inMemoryPersistence, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
 const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
@@ -15,6 +15,7 @@ const $ = (id) => document.getElementById(id);
 const PAGE = 100;
 const state = { src: load("src") || "seongsu", rows: {}, profiles: {}, auth: {}, filters: {}, sort: null, unsub: null, shown: PAGE, rev: { rows: null, pick: null } };
 let connection = 0;
+let adToken = null, adEpoch = 0;
 const session = createSession({
   sources: SOURCES,
   allowedEmails: ADMIN_EMAILS,
@@ -27,6 +28,7 @@ const session = createSession({
     watch: onAuthStateChanged,
   },
   onChange() {
+    adToken = null; adEpoch++;
     state.rows = {}; state.profiles = {}; state.auth = {}; state.rev.rows = null; state.rev.finance = null;
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
     renderAuthBtn(session.user());
@@ -34,6 +36,25 @@ const session = createSession({
     if (!FINANCE.includes(state.src)) connect(); else if (state.src === REVENUE) renderRevenue(); else connectFinance();
   },
 });
+// 광고 계정 선택이 대시보드의 관리 계정이나 다른 앱 세션을 바꾸지 않게 분리합니다.
+const adAuth = initializeAuth(initializeApp(SOURCES.seongsu.firebase, 'admob-authorization'), { persistence: inMemoryPersistence });
+async function getAdToken() {
+  const owner = session.user(), epoch = adEpoch;
+  if (!owner) throw Error('관리 계정으로 먼저 로그인해 주세요.');
+  if (adToken?.owner === owner.uid && adToken.exp > Date.now()) return adToken.value;
+  const provider = new GoogleAuthProvider();
+  provider.addScope(G.SCOPE_ADMOB);
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const result = await signInWithPopup(adAuth, provider);
+    if (epoch !== adEpoch || session.user()?.uid !== owner.uid) throw Error('관리 계정이 변경되었습니다. 다시 연결해 주세요.');
+    if (!result.user.emailVerified || !ADMIN_EMAILS.includes(result.user.email?.toLowerCase())) throw Error('지정된 관리 계정의 AdMob 계정으로 연결해 주세요.');
+    const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+    if (!token) throw Error('광고 수익 조회 권한을 받지 못했습니다.');
+    adToken = { value: token, owner: owner.uid, exp: Date.now() + 30 * 60_000 };
+    return token;
+  } finally { await signOut(adAuth); }
+}
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function save(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -264,7 +285,7 @@ async function loadRevenue() {
     const owner = session.user();
     if (!owner) throw new Error("관리 계정으로 먼저 로그인해 주세요.");
     setStatus("AdMob 불러오는 중…");
-    const token = await G.getToken(GOOGLE.clientId, G.SCOPE_ADMOB);
+    const token = await getAdToken();
     const [from, to] = revRange();
     const rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
     if (session.user()?.uid !== owner.uid) return;
@@ -595,7 +616,7 @@ $('financeAd').onclick = async () => {
   if (!owner) { financeError = '관리 계정으로 먼저 로그인해 주세요.'; renderFinance(); return; }
   $('financeAd').disabled = true;
   try {
-    const token = await G.getToken(GOOGLE.clientId, G.SCOPE_ADMOB);
+    const token = await getAdToken();
     const [y,m] = month.split('-').map(Number), from = new Date(y,m-1,1), to = new Date(Math.min(Date.now(),new Date(y,m,0).getTime()));
     if (from > to) throw Error('미래 월은 조회할 수 없습니다.');
     const rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
