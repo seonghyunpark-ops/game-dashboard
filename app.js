@@ -6,6 +6,10 @@ const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${e
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
 const { createSession } = await import(`./session.js?v=${encodeURIComponent(VERSION)}`);
 const REVENUE = "revenue";
+const FINANCE = ['finance', REVENUE, 'finance_bunny', 'finance_firebase'];
+const financeLabels = { finance: '총합', revenue: '광고 수익', finance_bunny: 'Bunny 지출', finance_firebase: 'Firebase 지출' };
+const { summarizeFinance } = await import(`./finance-core.js?v=${encodeURIComponent(VERSION)}`);
+let financeReports = {}, financeStop, financeGeneration = 0, financeError = '';
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 100;
@@ -23,10 +27,11 @@ const session = createSession({
     watch: onAuthStateChanged,
   },
   onChange() {
-    state.rows = {}; state.profiles = {}; state.auth = {}; state.rev.rows = null;
+    state.rows = {}; state.profiles = {}; state.auth = {}; state.rev.rows = null; state.rev.finance = null;
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
     renderAuthBtn(session.user());
-    if (state.src !== REVENUE) connect(); else renderRevenue();
+    financeStop?.(); financeStop = null; financeReports = {}; financeGeneration++;
+    if (!FINANCE.includes(state.src)) connect(); else if (state.src === REVENUE) renderRevenue(); else connectFinance();
   },
 });
 
@@ -164,8 +169,8 @@ function renderTabs() {
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push(key);
   }
-  groups.set("광고 수익", [REVENUE]);
-  const selected = state.src === REVENUE ? "광고 수익" : src().group || src().label;
+  groups.set("재무 총합", FINANCE);
+  const selected = FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
   $("tabs").replaceChildren(); $("subtabs").replaceChildren();
   for (const [group, keys] of groups) {
     const b = document.createElement("button");
@@ -179,7 +184,7 @@ function renderTabs() {
   $("subtabs").hidden = children.length < 2;
   for (const key of children) {
     const b = document.createElement("button");
-    b.textContent = SOURCES[key]?.tabLabel || SOURCES[key]?.label || "광고 수익";
+    b.textContent = financeLabels[key] || SOURCES[key]?.tabLabel || SOURCES[key]?.label;
     b.className = key === state.src ? "on" : "";
     b.setAttribute("aria-pressed", String(key === state.src));
     b.onclick = () => switchSource(key);
@@ -190,10 +195,15 @@ function renderTabs() {
 function switchSource(key) {
   state.src = key;
   save("src", key);
-  if (key !== REVENUE) save(`group.${src().group || src().label}`, key);
+  if (!FINANCE.includes(key)) save(`group.${src().group || src().label}`, key);
+  else save('group.재무 총합', key);
   const rev = key === REVENUE;
+  const finance = FINANCE.includes(key) && !rev;
   $("revenueView").hidden = !rev;
-  $("dataView").hidden = rev;
+  $("financeView").hidden = !finance;
+  $("dataView").hidden = rev || finance;
+  financeStop?.(); financeStop = null; financeGeneration++;
+  if (finance) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectFinance(); return; }
   if (rev) {
     connection++;
     state.unsub?.();
@@ -267,6 +277,7 @@ async function loadRevenue() {
     $("revNote").textContent = `불러오지 못했어요: ${e.message}`;
   }
   renderRevenue();
+  renderFinance();
 }
 
 const money = (n) => n.toLocaleString("ko-KR", { style: "currency", currency: ADMOB.currency, maximumFractionDigits: ADMOB.currency === "KRW" ? 0 : 2 });
@@ -363,7 +374,7 @@ async function connect() {
     state.unsub = () => stops.forEach(stop => stop());
     stops.push(onSnapshot(collection(db, s.collection), (snap) => {
       if (ticket !== connection || !session.user()) return;
-      state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+      state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() })).filter(row => !s.rowFilter || Object.entries(s.rowFilter).every(([k, v]) => (row[k] ?? (k === 'app' && row._id.startsWith('bunny-20') ? 'blaiva' : undefined)) === v));
       if (!s.columns && state.rows[key].length) { inferColumns(s, state.rows[key]); setupControls(); }
       setStatus(`실시간 · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
       render();
@@ -539,6 +550,63 @@ $("foot").textContent = `버전 ${VERSION}`;
 setInterval(checkUpdate, 5 * 60 * 1000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
 
-if (state.src !== REVENUE && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
+async function connectFinance() {
+  renderFinance();
+  if (!session.user()) { setStatus('관리 계정 로그인 필요'); return; }
+  const ticket = ++financeGeneration;
+  try {
+    const { db } = await session.ensure('blaiva_costs');
+    if (ticket !== financeGeneration) return;
+    financeStop = onSnapshot(collection(db, 'financeReports'), snap => {
+      if (ticket !== financeGeneration || !session.user()) return;
+      financeReports = Object.fromEntries(snap.docs.map(d => [d.id, d.data()])); financeError = '';
+      setStatus('재무 데이터 연결됨', 'live'); renderFinance();
+    }, e => { financeError = `재무 조회 실패: ${e.code}`; renderFinance(); });
+  } catch(e) { financeError = e.message; renderFinance(); }
+}
+function financeData() {
+  const month = $('financeMonth').value;
+  return summarizeFinance(financeReports[month], state.rev.finance?.month === month ? state.rev.finance.rows : null, month, ADMOB.currency);
+}
+function renderFinance() {
+  if (!$('financeMonth').value) return;
+  const month = $('financeMonth').value, report = financeReports[month], result = financeData();
+  const show = state.src === 'finance_bunny' ? 'Bunny' : state.src === 'finance_firebase' ? 'Firebase / GCP' : null;
+  const rows = result.rows.filter(r => !show || r.category === show);
+  const fm = (v, currency) => Number(v).toLocaleString('ko-KR', { style: 'currency', currency, maximumFractionDigits: currency === 'KRW' ? 2 : 6 });
+  $('financeTitle').textContent = financeLabels[state.src] || '재무 총합';
+  $('financeNote').textContent = financeError || (!session.user() ? '관리 계정 로그인 후 표시됩니다.' : `${month} · ${result.missing.length ? '집계 대기: ' + result.missing.join(' · ') : '세 항목 연결됨'}. 서로 다른 통화는 합산하지 않습니다. 손익은 조회된 항목만의 추정치이며 최종 청구·정산과 다를 수 있습니다.`);
+  $('financeKpis').innerHTML = Object.entries(result.totals).flatMap(([currency,t]) => [[fm(t.income,currency), `${currency} 수입`], [fm(t.expense,currency), `${currency} 지출`], [fm(t.net,currency), `${currency} 수입−지출 · ${result.missing.length ? '일부 집계' : '사용 기준'}`]]).map(([v,l]) => `<div class="kpi"><b>${esc(v)}</b><small>${esc(l)}</small></div>`).join('') || '<div class="kpi"><b>집계 대기</b><small>조회되지 않은 비용은 0원이 아닙니다</small></div>';
+  $('financeHead').innerHTML = '<tr><th>항목</th><th>대상</th><th>수입</th><th>지출</th><th>기준</th></tr>';
+  $('financeBody').innerHTML = rows.map(r => `<tr><td>${esc(r.category)}</td><td>${esc(r.app)}</td><td>${esc(fm(r.income,r.currency))}</td><td>${esc(fm(r.expense,r.currency))}</td><td>${esc(r.basis)}</td></tr>`).join('') || '<tr><td colspan="5">아직 집계된 항목이 없습니다.</td></tr>';
+  const checked = report?.checkedAt?.toDate?.();
+  $('financeChecked').textContent = checked ? '갱신 ' + checked.toLocaleString('ko-KR') : '';
+  const b = report?.bunny;
+  const details = b ? [`Bunny 계정 전체 사용료만 총합에 반영하며 아래 앱별 추정치는 중복 합산하지 않습니다.`, ...b.apps.map(a => `${a.app}: 저장 ${(a.storageBytes/1e9).toFixed(3)} GB · 전송 ${(a.bandwidthBytes/1e9).toFixed(3)} GB · 저장 ${fm(a.storageUsd,'USD')} + 전송 ${fm(a.deliveryUsd,'USD')} = ${fm(a.estimatedUsd,'USD')} 추정 (${a.regions}개 지역, $${a.storageUsdPerGbMonth}/GB·월)`), `Bunny 잔액: ${b.balance == null ? '미확인' : fm(b.balance,'USD')} · 체험 잔액: ${b.trialBalance == null ? '미확인' : fm(b.trialBalance,'USD')} · 체험 종료: ${b.trialUntil || '미확인'}. 잔액·충전액·크레딧을 사용료에 더하지 않습니다.`] : [];
+  details.push(report?.firebase?.note || 'Firebase / Google Cloud: 결제 내보내기 첫 데이터 수신 대기. 함수·Firestore·Hosting 등 프로젝트별 GCP 서비스 비용과 크레딧을 함께 집계합니다.');
+  $('financeDetails').innerHTML = details.map(t => `<p>${esc(t)}</p>`).join('');
+}
+$('financeMonth').value = new Date().toISOString().slice(0,7);
+$('financeMonth').onchange = renderFinance;
+$('financeAd').onclick = async () => {
+  const owner = session.user(), month = $('financeMonth').value;
+  if (!owner) { financeError = '관리 계정으로 먼저 로그인해 주세요.'; renderFinance(); return; }
+  $('financeAd').disabled = true;
+  try {
+    const token = await G.getToken(GOOGLE.clientId, G.SCOPE_ADMOB);
+    const [y,m] = month.split('-').map(Number), from = new Date(y,m-1,1), to = new Date(Math.min(Date.now(),new Date(y,m,0).getTime()));
+    if (from > to) throw Error('미래 월은 조회할 수 없습니다.');
+    const rows = await G.admobReport(token, ADMOB.publisherId, from, to, ADMOB.currency);
+    if (session.user()?.uid !== owner.uid) return;
+    state.rev.finance = { month, rows }; financeError = '';
+  } catch(e) { financeError = `광고 수익 조회 실패: ${e.message}`; }
+  finally { $('financeAd').disabled = false; renderFinance(); }
+};
+$('financeCsv').onclick = () => {
+  const q = v => `"${String(v).replace(/"/g,'""')}"`;
+  const data = [['월','항목','대상','통화','수입','지출','기준'], ...financeData().rows.map(r => [$('financeMonth').value,r.category,r.app,r.currency,r.income,r.expense,r.basis])];
+  const a = document.createElement('a'), url = URL.createObjectURL(new Blob(['\uFEFF' + data.map(r=>r.map(q).join(',')).join('\n')], {type:'text/csv'})); a.href=url; a.download=`finance_${$('financeMonth').value}.csv`; a.click(); URL.revokeObjectURL(url);
+};
+if (!FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
 switchSource(state.src);

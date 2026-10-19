@@ -171,6 +171,13 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   <nav class="subtabs" id="subtabs" aria-label="데이터 종류" hidden></nav>
 </div>
 <main>
+    <div id="financeView" hidden>
+      <div class="searchrow"><label>집계 월 <input type="month" id="financeMonth" aria-label="재무 집계 월"></label><button class="btn primary" id="financeAd">이 달 광고 수익 연결</button><button class="btn" id="financeCsv">재무 CSV</button></div>
+      <div class="note" id="financeNote"></div>
+      <div class="kpis" id="financeKpis"></div>
+      <section class="card"><div class="card-h"><h2 id="financeTitle">재무 총합</h2><span class="muted" id="financeChecked"></span></div><div class="tablewrap"><table><thead id="financeHead"></thead><tbody id="financeBody"></tbody></table></div></section>
+      <div class="note" id="financeDetails"></div>
+    </div>
   <div id="revenueView" hidden>
     <div class="searchrow">
       <select id="revRange" class="btn" aria-label="기간">
