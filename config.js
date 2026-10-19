@@ -281,16 +281,19 @@ SOURCES.blaiva_costs = {
     {
       "key": "estimatedUsd",
       "label": "예상 비용 USD",
+      "decimals": 6,
       "type": "number"
     },
     {
       "key": "deliveryUsd",
       "label": "전송 USD",
+      "decimals": 6,
       "type": "number"
     },
     {
       "key": "storageUsd",
       "label": "저장 추정 USD",
+      "decimals": 6,
       "type": "number"
     },
     {

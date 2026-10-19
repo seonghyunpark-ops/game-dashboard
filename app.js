@@ -73,7 +73,7 @@ function authInfo(u) {
   const ps = u.providerUserInfo || [];
   const pg = ps.find((p) => p.providerId === "playgames.google.com");
   return {
-    authProvider: ps.length ? ps.map((p) => PROVIDER_LABEL[p.providerId] || p.providerId).join("+") : "익명",
+    authProvider: ps.length ? ps.map((p) => PROVIDER_LABEL[p.providerId] || p.providerId).join("+") : u.customAuth ? "맞춤 인증" : "로그인 방식 미확인",
     authEmail: u.email || ps.find((p) => p.email)?.email || "",
     authPlayGamesId: pg?.rawId || "",
     authCreatedAt: u.createdAt ? new Date(Number(u.createdAt)) : null,
@@ -126,7 +126,7 @@ function fmt(v, col) {
   if (col.type === "bool") return isTrue(v) ? "예" : "아니오";
   if (v == null || v === "") return "";
   if (col.type === "date") { const d = toDate(v); return d ? d.toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : String(v); }
-  if (col.type === "number") return Number(v).toLocaleString("ko-KR");
+  if (col.type === "number") return Number(v).toLocaleString("ko-KR", { maximumFractionDigits: col.decimals ?? 3 });
   return String(v);
 }
 
@@ -232,7 +232,7 @@ function setupControls() {
   if (s.analyticsUrl) note.push(`플레이·클리어·광고 이벤트는 Google Analytics 에만 있어요. <a href="${s.analyticsUrl}" target="_blank" rel="noopener">Analytics 열기 →</a>`);
   if (s.authJoin) note.push(state.auth[state.src]
     ? `로그인 계정 ${state.auth[state.src].size.toLocaleString("ko-KR")}명의 이메일·로그인 방식·최근 로그인을 UID 기준으로 합쳐 보는 중이에요.`
-    : `UID에 맞는 로그인 정보(이메일·Play 게임즈 ID·최근 로그인)를 보려면 Firebase 프로젝트 소유 계정으로 연결하세요.<br><button class="btn" id="joinAuthBtn">로그인 정보 합치기</button>`);
+    : `UID에 맞는 로그인 이메일·방식·최근 로그인을 추가로 보려면 해당 Firebase 프로젝트에 조회 권한이 있는 Google 계정으로 연결하세요.<br><button class="btn" id="joinAuthBtn">로그인 정보 합치기</button>`);
   $("note").innerHTML = note.length ? `<div class="note">${note.join("<br>")}</div>` : "";
   $("joinAuthBtn")?.addEventListener("click", joinAuth);
 }
@@ -438,7 +438,7 @@ function renderKpis(rows, all) {
   for (const c of cols().filter((c) => c.type === "number")) {
     const vals = rows.map((r) => Number(r[c.key])).filter((n) => !isNaN(n));
     const sum = vals.reduce((a, b) => a + b, 0);
-    cards.push([sum.toLocaleString("ko-KR"), `${c.label} 합계 · 평균 ${vals.length ? (sum / vals.length).toFixed(1) : 0}`]);
+    cards.push([sum.toLocaleString("ko-KR", { maximumFractionDigits: c.decimals ?? 3 }), `${c.label} 합계 · 평균 ${vals.length ? (sum / vals.length).toFixed(c.decimals ?? 1) : 0}`]);
   }
   $("cards").innerHTML = cards.map(([b, t]) => `<div class="kpi"><b>${b}</b><small>${t}</small></div>`).join("");
 }
