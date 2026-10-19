@@ -9,7 +9,7 @@ const REVENUE = "revenue";
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 100;
-const state = { src: load("src") || "seongsu", rows: {}, auth: {}, filters: {}, sort: null, unsub: null, stopSnap: null, shown: PAGE, rev: { rows: null, pick: null } };
+const state = { src: load("src") || "seongsu", rows: {}, profiles: {}, auth: {}, filters: {}, sort: null, unsub: null, shown: PAGE, rev: { rows: null, pick: null } };
 let connection = 0;
 const session = createSession({
   sources: SOURCES,
@@ -23,7 +23,7 @@ const session = createSession({
     watch: onAuthStateChanged,
   },
   onChange() {
-    state.rows = {}; state.auth = {}; state.rev.rows = null;
+    state.rows = {}; state.profiles = {}; state.auth = {}; state.rev.rows = null;
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
     renderAuthBtn(session.user());
     if (state.src !== REVENUE) connect(); else renderRevenue();
@@ -84,7 +84,7 @@ function authInfo(u) {
 
 // 문서 ID(=UID) 기준으로 Authentication 정보를 붙이고, 세이브 문서가 없는 로그인 계정도 행으로 넣는다.
 function rowsOf(key) {
-  const rows = state.rows[key] || [];
+  const rows = (state.rows[key] || []).map(r => ({ ...r, ...(state.profiles[key]?.get(r._id) || {}) }));
   const auth = state.auth[key];
   if (!auth) return rows;
   const seen = new Set();
@@ -158,20 +158,39 @@ function setStatus(text, cls) {
 }
 
 function renderTabs() {
-  $("tabs").innerHTML = "";
-  const tabs = [...Object.entries(SOURCES).map(([k, s]) => [k, s.label]), [REVENUE, "광고 수익"]];
-  for (const [key, label] of tabs) {
+  const groups = new Map();
+  for (const [key, source] of Object.entries(SOURCES)) {
+    const group = source.group || source.label;
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(key);
+  }
+  groups.set("광고 수익", [REVENUE]);
+  const selected = state.src === REVENUE ? "광고 수익" : src().group || src().label;
+  $("tabs").replaceChildren(); $("subtabs").replaceChildren();
+  for (const [group, keys] of groups) {
     const b = document.createElement("button");
-    b.className = key === state.src ? "on" : "";
-    b.textContent = label;
-    b.onclick = () => switchSource(key);
+    b.className = group === selected ? "on" : "";
+    b.setAttribute("aria-pressed", String(group === selected));
+    b.textContent = group;
+    b.onclick = () => { const previous = load(`group.${group}`); switchSource(keys.includes(previous) ? previous : keys[0]); };
     $("tabs").append(b);
+  }
+  const children = groups.get(selected) || [];
+  $("subtabs").hidden = children.length < 2;
+  for (const key of children) {
+    const b = document.createElement("button");
+    b.textContent = SOURCES[key]?.tabLabel || SOURCES[key]?.label || "광고 수익";
+    b.className = key === state.src ? "on" : "";
+    b.setAttribute("aria-pressed", String(key === state.src));
+    b.onclick = () => switchSource(key);
+    $("subtabs").append(b);
   }
 }
 
 function switchSource(key) {
   state.src = key;
   save("src", key);
+  if (key !== REVENUE) save(`group.${src().group || src().label}`, key);
   const rev = key === REVENUE;
   $("revenueView").hidden = !rev;
   $("dataView").hidden = rev;
@@ -340,14 +359,20 @@ async function connect() {
     const { db } = await session.ensure(key);
     if (ticket !== connection || key !== state.src) return;
     setStatus("연결 중…");
-    state.stopSnap = onSnapshot(collection(db, s.collection), (snap) => {
+    const stops = [];
+    state.unsub = () => stops.forEach(stop => stop());
+    stops.push(onSnapshot(collection(db, s.collection), (snap) => {
       if (ticket !== connection || !session.user()) return;
       state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
       if (!s.columns && state.rows[key].length) { inferColumns(s, state.rows[key]); setupControls(); }
       setStatus(`실시간 · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
       render();
-    }, (err) => { if (ticket === connection) setStatus(err.code === "permission-denied" ? "이 앱의 읽기 권한이 없습니다" : err.message, "err"); });
-    state.unsub = () => { state.stopSnap?.(); state.stopSnap = null; };
+    }, (err) => { if (ticket === connection) setStatus(err.code === "permission-denied" ? "이 앱의 읽기 권한이 없습니다" : err.message, "err"); }));
+    if (s.profileJoin) stops.push(onSnapshot(collection(db, s.profileJoin.collection), snap => {
+      if (ticket !== connection || !session.user()) return;
+      state.profiles[key] = new Map(snap.docs.map(doc => [doc.id, Object.fromEntries(s.profileJoin.fields.filter(field => doc.data()[field] !== undefined).map(field => [field, doc.data()[field]]))]));
+      render();
+    }, err => { if (ticket === connection) setStatus(`프로필 조회 실패: ${err.code}`, "err"); }));
   } catch (e) { if (ticket === connection) setStatus(e.message, "err"); }
 }
 

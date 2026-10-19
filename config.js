@@ -83,7 +83,7 @@ export const SOURCES = {
     ],
   },
   lumiclass: {
-  "label": "LumiClass 회원",
+  "label": "campusmaru 회원",
   "firebase": {
     "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
     "authDomain": "lumiclass-ff4a6.firebaseapp.com",
@@ -108,7 +108,7 @@ export const SOURCES = {
   ]
 },
   lumiclass_metrics: {
-  "label": "LumiClass 매출",
+  "label": "campusmaru 매출",
   "firebase": {
     "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
     "authDomain": "lumiclass-ff4a6.firebaseapp.com",
@@ -118,7 +118,7 @@ export const SOURCES = {
   "collection": "reporting_metrics"
 },
   lumiclass_costs: {
-  "label": "LumiClass 비용",
+  "label": "campusmaru 비용",
   "firebase": {
     "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
     "authDomain": "lumiclass-ff4a6.firebaseapp.com",
@@ -137,4 +137,170 @@ export const SOURCES = {
   },
   "collection": "accounts"
 },
+};
+
+// 같은 앱은 상단에서 한 탭으로 묶고 데이터 종류를 아래에 표시합니다.
+SOURCES.seongsu.group = "성수역"; SOURCES.egypt.group = "이집트 디펜스"; SOURCES.aicena.group = "AICENA";
+SOURCES.lumiclass.group = "campusmaru"; SOURCES.lumiclass.tabLabel = "회원";
+SOURCES.lumiclass_metrics.group = "campusmaru"; SOURCES.lumiclass_metrics.tabLabel = "매출";
+SOURCES.lumiclass_costs.group = "campusmaru"; SOURCES.lumiclass_costs.tabLabel = "비용";
+SOURCES.blaiva = {
+  "firebase": {
+    "apiKey": "AIzaSyAjLPY8q679CJBjMM1OH1iCqI6aXGbKIxw",
+    "authDomain": "blaiva-prod.firebaseapp.com",
+    "projectId": "blaiva-prod",
+    "appId": "1:42379104060:web:4bdc3a13e64c764aa85839"
+  },
+  "group": "blaiva",
+  "label": "blaiva 회원",
+  "tabLabel": "회원",
+  "collection": "accounts",
+  "authJoin": true,
+  "titleKey": "nickname",
+  "profileJoin": {
+    "collection": "creatorProfiles",
+    "fields": [
+      "nickname",
+      "creatorEnabled",
+      "activeCount"
+    ]
+  },
+  "dateField": "createdAt",
+  "columns": [
+    {
+      "key": "_id",
+      "label": "회원 UID"
+    },
+    {
+      "key": "nickname",
+      "label": "닉네임"
+    },
+    {
+      "key": "creatorEnabled",
+      "label": "크리에이터",
+      "type": "bool",
+      "category": true
+    },
+    {
+      "key": "activeCount",
+      "label": "보관 작품",
+      "type": "number"
+    },
+    {
+      "key": "createdAt",
+      "label": "가입일",
+      "type": "date"
+    },
+    {
+      "key": "visitCount",
+      "label": "접속 횟수",
+      "type": "number"
+    },
+    {
+      "key": "lastVisitAt",
+      "label": "최근 접속",
+      "type": "date"
+    },
+    {
+      "key": "lastPlatform",
+      "label": "플랫폼",
+      "category": true
+    }
+  ]
+};
+SOURCES.blaiva_works = {
+  "firebase": {
+    "apiKey": "AIzaSyAjLPY8q679CJBjMM1OH1iCqI6aXGbKIxw",
+    "authDomain": "blaiva-prod.firebaseapp.com",
+    "projectId": "blaiva-prod",
+    "appId": "1:42379104060:web:4bdc3a13e64c764aa85839"
+  },
+  "group": "blaiva",
+  "label": "blaiva 작품",
+  "tabLabel": "작품",
+  "collection": "creatorVideos",
+  "titleKey": "title",
+  "dateField": "createdAt",
+  "columns": [
+    {
+      "key": "_id",
+      "label": "영상 ID"
+    },
+    {
+      "key": "title",
+      "label": "제목"
+    },
+    {
+      "key": "creator",
+      "label": "크리에이터"
+    },
+    {
+      "key": "ownerUid",
+      "label": "회원 UID"
+    },
+    {
+      "key": "state",
+      "label": "상태",
+      "category": true
+    },
+    {
+      "key": "declaredSize",
+      "label": "원본 바이트",
+      "type": "number"
+    },
+    {
+      "key": "createdAt",
+      "label": "업로드",
+      "type": "date"
+    }
+  ]
+};
+SOURCES.blaiva_costs = {
+  "firebase": {
+    "apiKey": "AIzaSyAjLPY8q679CJBjMM1OH1iCqI6aXGbKIxw",
+    "authDomain": "blaiva-prod.firebaseapp.com",
+    "projectId": "blaiva-prod",
+    "appId": "1:42379104060:web:4bdc3a13e64c764aa85839"
+  },
+  "group": "blaiva",
+  "label": "blaiva 비용",
+  "tabLabel": "비용",
+  "collection": "operationalBudgets",
+  "titleKey": "month",
+  "dateField": "checkedAt",
+  "columns": [
+    {
+      "key": "month",
+      "label": "월"
+    },
+    {
+      "key": "monthlyUsd",
+      "label": "예산 USD",
+      "type": "number"
+    },
+    {
+      "key": "estimatedUsd",
+      "label": "예상 비용 USD",
+      "type": "number"
+    },
+    {
+      "key": "deliveryUsd",
+      "label": "전송 USD",
+      "type": "number"
+    },
+    {
+      "key": "storageUsd",
+      "label": "저장 추정 USD",
+      "type": "number"
+    },
+    {
+      "key": "email",
+      "label": "알림 이메일"
+    },
+    {
+      "key": "checkedAt",
+      "label": "점검 시각",
+      "type": "date"
+    }
+  ]
 };

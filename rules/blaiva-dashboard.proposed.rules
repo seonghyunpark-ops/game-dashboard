@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    match /accounts/{uid} {
+      // 회원 문서 필드: 동의 버전·가입 시각 + 접속 통계(접속 횟수·최근 접속 시각·최근 접속 플랫폼)
+      function accountKeys() {
+        return request.resource.data.keys().hasOnly(['consentVersion', 'createdAt', 'visitCount', 'lastVisitAt', 'lastPlatform']);
+      }
+      function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+      function consentValid() {
+        return request.resource.data.consentVersion in ['2026-10-01', '2026-10-02']
+          && request.resource.data.createdAt is timestamp;
+      }
+      // 접속 기록은 1씩만 늘리고, 시각은 서버 시각만, 플랫폼은 정해진 값만 허용합니다.
+      function visitWrite() {
+        let d = request.resource.data;
+        return changed().hasOnly(['visitCount', 'lastVisitAt', 'lastPlatform'])
+          && d.visitCount == resource.data.get('visitCount', 0) + 1
+          && d.lastVisitAt == request.time
+          && d.lastPlatform in ['web', 'android', 'ios'];
+      }
+      allow read, delete: if owner(uid);
+      allow create: if owner(uid)
+        && request.resource.data.keys().hasOnly(['consentVersion', 'createdAt'])
+        && consentValid();
+      allow update: if owner(uid) && accountKeys() && (
+        (consentValid() && changed().hasOnly(['consentVersion', 'createdAt'])) || visitWrite()
+      );
+      match /private/saved {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid)
+          && request.resource.data.keys().hasOnly(['ids', 'updatedAt'])
+          && request.resource.data.ids is list
+          && request.resource.data.ids.size() <= 500
+          && request.resource.data.updatedAt == request.time;
+      }
+    }
+    // OAuth 상태·토큰은 서버 전용이며 클라이언트가 직접 읽거나 쓸 수 없습니다.
+    match /{document=**} { allow read, write: if false; }
+
+    // 대시보드 관리자만 지정한 운영 컬렉션을 읽습니다. 찜·OAuth·닉네임 예약은 포함하지 않습니다.
+    match /{report}/{id} {
+      allow read: if report in ['accounts', 'creatorProfiles', 'creatorVideos', 'operationalBudgets']
+        && request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com', 'lee.ike1@gmail.com'];
+    }
+  }
+}
