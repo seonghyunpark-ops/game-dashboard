@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, initializeAuth, inMemoryPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, browserSessionPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
 const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
@@ -37,23 +37,17 @@ const session = createSession({
   },
 });
 // 광고 계정 선택이 대시보드의 관리 계정이나 다른 앱 세션을 바꾸지 않게 분리합니다.
-const adAuth = initializeAuth(initializeApp(SOURCES.seongsu.firebase, 'admob-authorization'), { persistence: inMemoryPersistence, popupRedirectResolver: browserPopupRedirectResolver });
+const adAuth = initializeAuth(initializeApp(SOURCES.seongsu.firebase, 'admob-authorization'), { persistence: browserSessionPersistence, popupRedirectResolver: browserPopupRedirectResolver });
 async function getAdToken() {
-  const owner = session.user(), epoch = adEpoch;
+  const owner = session.user();
   if (!owner) throw Error('관리 계정으로 먼저 로그인해 주세요.');
   if (adToken?.owner === owner.uid && adToken.exp > Date.now()) return adToken.value;
   const provider = new GoogleAuthProvider();
   provider.addScope(G.SCOPE_ADMOB);
   provider.setCustomParameters({ prompt: 'select_account' });
-  try {
-    const result = await signInWithPopup(adAuth, provider);
-    if (epoch !== adEpoch || session.user()?.uid !== owner.uid) throw Error('관리 계정이 변경되었습니다. 다시 연결해 주세요.');
-    if (!result.user.emailVerified || !ADMIN_EMAILS.includes(result.user.email?.toLowerCase())) throw Error('지정된 관리 계정의 AdMob 계정으로 연결해 주세요.');
-    const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
-    if (!token) throw Error('광고 수익 조회 권한을 받지 못했습니다.');
-    adToken = { value: token, owner: owner.uid, exp: Date.now() + 30 * 60_000 };
-    return token;
-  } finally { await signOut(adAuth); }
+  sessionStorage.setItem('admob.authorization', JSON.stringify({ owner: owner.uid, view: state.src, month: $('financeMonth').value, range: $('revRange').value, expires: Date.now() + 10 * 60_000 }));
+  await signInWithRedirect(adAuth, provider);
+  throw Error('Google 인증 페이지로 이동 중입니다.');
 }
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -633,3 +627,21 @@ $('financeCsv').onclick = () => {
 if (!FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
 switchSource(state.src);
+async function resumeAdAuthorization() {
+  const raw = sessionStorage.getItem('admob.authorization');
+  if (!raw) return;
+  try {
+    const pending = JSON.parse(raw);
+    await session.client('seongsu').auth.authStateReady();
+    if (pending.expires < Date.now() || session.user()?.uid !== pending.owner) throw Error('관리 계정이 변경됐거나 인증 시간이 지났습니다. 다시 연결해 주세요.');
+    const result = await getRedirectResult(adAuth);
+    if (!result?.user?.emailVerified || !ADMIN_EMAILS.includes(result.user.email?.toLowerCase())) throw Error('지정된 관리 계정으로 Google 인증을 완료해 주세요.');
+    const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+    if (!token) throw Error('Google 광고 조회 토큰을 받지 못했습니다. 다시 연결해 주세요.');
+    adToken = { value: token, owner: pending.owner, exp: Date.now() + 30 * 60_000 };
+    $('financeMonth').value = pending.month; $('revRange').value = pending.range;
+    if (pending.view === REVENUE) await loadRevenue(); else await $('financeAd').onclick();
+  } catch(e) { financeError = `광고 인증 실패: ${e.message}`; renderFinance(); setStatus(financeError,'err'); }
+  finally { sessionStorage.removeItem('admob.authorization'); await signOut(adAuth); }
+}
+void resumeAdAuthorization();
