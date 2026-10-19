@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, initializeAuth, inMemoryPersistence, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, inMemoryPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
 const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
@@ -37,7 +37,7 @@ const session = createSession({
   },
 });
 // 광고 계정 선택이 대시보드의 관리 계정이나 다른 앱 세션을 바꾸지 않게 분리합니다.
-const adAuth = initializeAuth(initializeApp(SOURCES.seongsu.firebase, 'admob-authorization'), { persistence: inMemoryPersistence });
+const adAuth = initializeAuth(initializeApp(SOURCES.seongsu.firebase, 'admob-authorization'), { persistence: inMemoryPersistence, popupRedirectResolver: browserPopupRedirectResolver });
 async function getAdToken() {
   const owner = session.user(), epoch = adEpoch;
   if (!owner) throw Error('관리 계정으로 먼저 로그인해 주세요.');
