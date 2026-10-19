@@ -312,7 +312,7 @@ SOURCES.blaiva_costs = {
 SOURCES.blaiva_costs.rowFilter = { app: 'blaiva' };
 SOURCES.lumiclass_costs = { ...SOURCES.blaiva_costs, label: 'campusmaru 비용', group: 'campusmaru', rowFilter: { app: 'campusmaru' }, columns: SOURCES.blaiva_costs.columns.filter(c => !['monthlyUsd', 'email'].includes(c.key)) };
 for (const source of [SOURCES.blaiva_costs, SOURCES.lumiclass_costs]) source.columns = [...source.columns,
-  { key: 'storageBytes', label: '저장 바이트', type: 'number' },
-  { key: 'bandwidthBytes', label: '전송 바이트', type: 'number' },
+  { key: 'storageBytes', label: '저장 GB', type: 'number', divisor: 1e9, decimals: 3 },
+  { key: 'bandwidthBytes', label: '전송 GB', type: 'number', divisor: 1e9, decimals: 3 },
   { key: 'storageUsdPerGbMonth', label: 'GB당 월 저장 USD', type: 'number', decimals: 3 },
 ];

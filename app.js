@@ -131,7 +131,7 @@ function fmt(v, col) {
   if (col.type === "bool") return isTrue(v) ? "예" : "아니오";
   if (v == null || v === "") return "";
   if (col.type === "date") { const d = toDate(v); return d ? d.toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : String(v); }
-  if (col.type === "number") return Number(v).toLocaleString("ko-KR", { maximumFractionDigits: col.decimals ?? 3 });
+  if (col.type === "number") return (Number(v) / (col.divisor || 1)).toLocaleString("ko-KR", { maximumFractionDigits: col.decimals ?? 3 });
   return String(v);
 }
 
@@ -449,7 +449,7 @@ function renderKpis(rows, all) {
   for (const c of cols().filter((c) => c.type === "number")) {
     const vals = rows.map((r) => Number(r[c.key])).filter((n) => !isNaN(n));
     const sum = vals.reduce((a, b) => a + b, 0);
-    cards.push([sum.toLocaleString("ko-KR", { maximumFractionDigits: c.decimals ?? 3 }), `${c.label} 합계 · 평균 ${vals.length ? (sum / vals.length).toFixed(c.decimals ?? 1) : 0}`]);
+    cards.push([fmt(sum,c), `${c.label} 합계 · 평균 ${vals.length ? (sum / vals.length / (c.divisor || 1)).toFixed(c.decimals ?? 1) : 0}`]);
   }
   $("cards").innerHTML = cards.map(([b, t]) => `<div class="kpi"><b>${b}</b><small>${t}</small></div>`).join("");
 }
