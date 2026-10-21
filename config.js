@@ -87,7 +87,7 @@ export const SOURCES = {
     ],
   },
   lumiclass: {
-  "label": "campusmaru 회원",
+  "label": "캠퍼스마루 회원",
   "firebase": {
     "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
     "authDomain": "lumiclass-ff4a6.firebaseapp.com",
@@ -98,8 +98,11 @@ export const SOURCES = {
   columns: [
     { key: "_id", label: "회원 ID" },
     { key: "name", label: "이름" },
+    { key: "nickname", label: "닉네임" },
     { key: "email", label: "이메일" },
-    { key: "role", label: "역할", category: true },
+    { key: "role", label: "역할(admin 관리자·instructor 강사·student 학생)", category: true },
+    { key: "signupCompletedAt", label: "가입정보 입력일", type: "date" },
+    { key: "marketingAgreed", label: "마케팅 동의", type: "bool", category: true },
     { key: "loginProviders", label: "로그인 방식", category: true },
     { key: "createdAt", label: "가입일", type: "date" },
     { key: "lastLoginAt", label: "최근 로그인", type: "date" },
@@ -112,7 +115,7 @@ export const SOURCES = {
   ]
 },
   lumiclass_metrics: {
-  "label": "campusmaru 매출",
+  "label": "캠퍼스마루 매출",
   "firebase": {
     "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
     "authDomain": "lumiclass-ff4a6.firebaseapp.com",
@@ -122,7 +125,7 @@ export const SOURCES = {
   "collection": "reporting_metrics"
 },
   lumiclass_costs: {
-  "label": "campusmaru 비용",
+  "label": "캠퍼스마루 비용",
   "firebase": {
     "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
     "authDomain": "lumiclass-ff4a6.firebaseapp.com",
@@ -145,9 +148,9 @@ export const SOURCES = {
 
 // 같은 앱은 상단에서 한 탭으로 묶고 데이터 종류를 아래에 표시합니다.
 SOURCES.seongsu.group = "성수역"; SOURCES.egypt.group = "이집트 디펜스"; SOURCES.aicena.group = "AICENA";
-SOURCES.lumiclass.group = "campusmaru"; SOURCES.lumiclass.tabLabel = "회원";
-SOURCES.lumiclass_metrics.group = "campusmaru"; SOURCES.lumiclass_metrics.tabLabel = "매출";
-SOURCES.lumiclass_costs.group = "campusmaru"; SOURCES.lumiclass_costs.tabLabel = "비용";
+SOURCES.lumiclass.group = "캠퍼스마루"; SOURCES.lumiclass.tabLabel = "회원";
+SOURCES.lumiclass_metrics.group = "캠퍼스마루"; SOURCES.lumiclass_metrics.tabLabel = "매출";
+SOURCES.lumiclass_costs.group = "캠퍼스마루"; SOURCES.lumiclass_costs.tabLabel = "비용";
 SOURCES.blaiva = {
   "firebase": {
     "apiKey": "AIzaSyAjLPY8q679CJBjMM1OH1iCqI6aXGbKIxw",
@@ -314,7 +317,7 @@ SOURCES.blaiva_costs = {
 
 // 비용 데이터는 전용 수집 프로젝트에서 앱별로 구분한다.
 SOURCES.blaiva_costs.rowFilter = { app: 'blaiva' };
-SOURCES.lumiclass_costs = { ...SOURCES.blaiva_costs, label: 'campusmaru 비용', group: 'campusmaru', rowFilter: { app: 'campusmaru' }, columns: SOURCES.blaiva_costs.columns.filter(c => !['monthlyUsd', 'email'].includes(c.key)) };
+SOURCES.lumiclass_costs = { ...SOURCES.blaiva_costs, label: '캠퍼스마루 비용', group: '캠퍼스마루', rowFilter: { app: 'campusmaru' }, columns: SOURCES.blaiva_costs.columns.filter(c => !['monthlyUsd', 'email'].includes(c.key)) };
 for (const source of [SOURCES.blaiva_costs, SOURCES.lumiclass_costs]) source.columns = [...source.columns,
   { key: 'storageBytes', label: '저장 GB', type: 'number', divisor: 1e9, decimals: 3 },
   { key: 'bandwidthBytes', label: '전송 GB', type: 'number', divisor: 1e9, decimals: 3 },
