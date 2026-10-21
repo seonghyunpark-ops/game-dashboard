@@ -362,3 +362,12 @@ SOURCES.blaiva_members={firebase:SOURCES.blaiva.firebase,group:'blaiva',label:'b
  {key:'_id',label:'회원 UID'},{key:'email',label:'인증 이메일'},{key:'nickname',label:'닉네임'},{key:'name',label:'이름'},{key:'phone',label:'휴대폰번호'},{key:'registrationComplete',label:'가입 완료',type:'bool',category:true},{key:'marketingConsent',label:'마케팅 수신',type:'bool',category:true},{key:'termsVersion',label:'약관 버전'},{key:'termsAcceptedAt',label:'약관 동의',type:'date'},{key:'marketingUpdatedAt',label:'수신 동의 변경',type:'date'},{key:'createdAt',label:'가입일',type:'date'}]};
 SOURCES.blaiva_comments={firebase:SOURCES.blaiva.firebase,group:'blaiva',label:'blaiva 댓글',tabLabel:'댓글',collection:'videoComments',titleKey:'text',dateField:'createdAt',columns:[
  {key:'_id',label:'댓글 ID'},{key:'videoTitle',label:'영상 제목'},{key:'videoKey',label:'영상 ID',category:true},{key:'nickname',label:'작성 닉네임'},{key:'ownerUid',label:'작성 회원 UID'},{key:'text',label:'댓글 내용'},{key:'parentId',label:'부모 댓글 ID'},{key:'likeCount',label:'하트 수'},{key:'replyCount',label:'답글 수'},{key:'deleted',label:'삭제됨'},{key:'editedAt',label:'수정일',type:'date'},{key:'createdAt',label:'작성일',type:'date'}]};
+
+// 영상 목록 자동 갱신(09:00·21:00 KST) 실행 기록. 갱신 PC가 실행마다 문서 하나를 남깁니다(실패·변경 없음 포함).
+SOURCES.blaiva_updates={firebase:SOURCES.blaiva.firebase,group:'blaiva',label:'blaiva 영상 갱신',tabLabel:'영상 갱신',collection:'catalogUpdateRuns',titleKey:'summary',dateField:'startedAt',defaultSort:{key:'startedAt',dir:-1},stats:['addedCount','removedCount','editedCount'],
+ latestSummary:(r,date,esc)=>`<b>최근 실행</b> ${esc(r.startedAtKst||date(r.startedAt))} · <b>${esc(r.status||'')}</b>${r.error?` · ${esc(r.error)}`:''}<br><b>최근 성공</b> ${esc(r.lastSuccessKst||'없음')} · 공개 영상 ${Number(r.totalVideos||0).toLocaleString('ko-KR')}편 · 크리에이터 ${Number(r.totalCreators||0).toLocaleString('ko-KR')}명<br>${esc(r.platformSummary||'')}`,
+ columns:[
+ {key:'_id',label:'실행 ID'},{key:'slot',label:'예약',category:true},{key:'status',label:'결과',category:true},{key:'startedAt',label:'시작',type:'date'},{key:'durationSec',label:'소요 초',type:'number',kpi:false,decimals:0},
+ {key:'addedCount',label:'추가',type:'number',decimals:0},{key:'removedCount',label:'삭제',type:'number',decimals:0},{key:'editedCount',label:'수정',type:'number',decimals:0},
+ {key:'deploy',label:'Firebase 배포',category:true},{key:'backup',label:'GitHub 백업',category:true},{key:'totalVideos',label:'공개 영상',type:'number',kpi:false,decimals:0},{key:'platformSummary',label:'플랫폼별 영상/크리에이터'},
+ {key:'lastSuccessKst',label:'최근 성공'},{key:'error',label:'오류'},{key:'changes',label:'변경 영상',type:'links'}]};

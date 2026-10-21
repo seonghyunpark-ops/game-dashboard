@@ -136,6 +136,7 @@ function isTrue(v) { return v === true || v === "1" || v === 1 || v === "true"; 
 function fmt(v, col) {
   if (col.type === "bool") return isTrue(v) ? "예" : "아니오";
   if (v == null || v === "") return "";
+  if (col.type === "links") return Array.isArray(v) ? v.map((x) => [x.change, x.title, x.platform, x.url].filter(Boolean).join(" ")).join(" | ") : "";
   if (col.type === "date") { const d = toDate(v); return d ? d.toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : String(v); }
   if (col.type === "number") return (Number(v) / (col.divisor || 1)).toLocaleString("ko-KR", { maximumFractionDigits: col.decimals ?? 3 });
   return String(v);
@@ -223,7 +224,7 @@ function switchSource(key) {
     return;
   }
   state.filters = {};
-  state.sort = null;
+  state.sort = src().defaultSort ? { ...src().defaultSort } : null;
   state.shown = PAGE;
   $("q").value = $("from").value = $("to").value = "";
   renderTabs();
@@ -439,7 +440,7 @@ function renderFilters(all) {
 
 function renderKpis(rows, all) {
   const cards = [[rows.length.toLocaleString("ko-KR"), rows.length === all.length ? "전체" : `필터 결과 · 전체 ${all.length.toLocaleString("ko-KR")}`]];
-  for (const c of cols().filter((c) => c.type === "number")) {
+  for (const c of cols().filter((c) => c.type === "number" && c.kpi !== false)) {
     const vals = rows.map((r) => Number(r[c.key])).filter((n) => !isNaN(n));
     const sum = vals.reduce((a, b) => a + b, 0);
     cards.push([fmt(sum,c), `${c.label} 합계 · 평균 ${vals.length ? (sum / vals.length / (c.divisor || 1)).toFixed(c.decimals ?? 1) : 0}`]);
@@ -466,7 +467,19 @@ function renderGroups(rows) {
   });
 }
 
+// 영상 갱신 기록처럼 [{change,title,platform,creator,url}] 배열은 원문 링크 목록으로 보여줍니다.
+function links(list, limit = 50) {
+  if (!Array.isArray(list) || !list.length) return "";
+  const safe = (u) => /^https:\/\//.test(String(u || "")) ? esc(u) : "";
+  const html = list.slice(0, limit).map((v) => {
+    const label = `${v.change ? `[${esc(v.change)}] ` : ""}${esc(v.title || v.id || "")}${v.platform ? ` · ${esc(v.platform)}` : ""}${v.creator ? ` · ${esc(v.creator)}` : ""}`;
+    return safe(v.url) ? `<a href="${safe(v.url)}" target="_blank" rel="noopener">${label}</a>` : `<span>${label}</span>`;
+  }).join("<br>");
+  return html + (list.length > limit ? `<br><span class="muted">외 ${list.length - limit}편</span>` : "");
+}
+
 function cell(r, c) {
+  if (c.type === "links") return links(r[c.key]);
   const v = fmt(r[c.key], c);
   if (c.type === "bool") return `<span class="pill${isTrue(r[c.key]) ? " yes" : ""}">${v}</span>`;
   return esc(v);
@@ -488,9 +501,22 @@ function renderList(rows) {
     const sub = title !== r._id ? `<div class="item-id">${esc(r._id)}</div>` : "";
     const st = stats.map((c) => `<div class="stat"><b>${esc(fmt(r[c.key], c) || "0")}</b><small>${c.label}</small></div>`).join("");
     const tg = tags.map((c) => { const v = catValue(r, c); return v === "(없음)" ? "" : `<span class="pill${c.type === "bool" && isTrue(r[c.key]) ? " yes" : ""}">${c.type === "bool" ? c.label + " " : ""}${esc(v)}</span>`; }).join("");
-    return `<div class="item"><div class="item-h"><div class="item-t">${esc(title)}</div><div class="item-d">${ago(r[s.dateField])}</div></div>${sub}${st ? `<div class="item-stats" style="grid-template-columns:repeat(${stats.length},1fr)">${st}</div>` : ""}<div class="item-tags">${tg}</div></div>`;
+    const ln = cols().filter((c) => c.type === "links").map((c) => links(r[c.key], 20)).filter(Boolean).map((h) => `<div class="item-links">${h}</div>`).join("");
+    return `<div class="item"><div class="item-h"><div class="item-t">${esc(title)}</div><div class="item-d">${ago(r[s.dateField])}</div></div>${sub}${st ? `<div class="item-stats" style="grid-template-columns:repeat(${stats.length},1fr)">${st}</div>` : ""}<div class="item-tags">${tg}</div>${ln}</div>`;
   }).join("");
   $("list").innerHTML = html || `<div class="empty">${state.rows[state.src] ? "조건에 맞는 항목이 없어요" : "로그인하면 데이터가 표시돼요"}</div>`;
+}
+
+// 실행 기록 탭은 가장 최근 실행 상태와 마지막 성공 시각을 먼저 보여줍니다.
+function renderLatest(all) {
+  const s = src();
+  let box = $("latest");
+  if (!s.latestSummary) { if (box) box.hidden = true; return; }
+  if (!box) { box = document.createElement("div"); box.id = "latest"; box.className = "note"; $("note").after(box); }
+  const time = (r) => toDate(r[s.dateField])?.getTime() ?? 0;
+  const latest = [...all].sort((a, b) => time(b) - time(a))[0];
+  box.hidden = false;
+  box.innerHTML = latest ? s.latestSummary(latest, (v) => fmt(v, { type: "date" }), esc) : "아직 실행 기록이 없어요.";
 }
 
 function render() {
@@ -498,6 +524,7 @@ function render() {
   const rows = filtered();
   renderFilters(all);
   renderKpis(rows, all);
+  renderLatest(all);
   renderGroups(rows);
   renderTable(rows);
   renderList(rows);
