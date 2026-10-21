@@ -134,6 +134,38 @@ export const SOURCES = {
   },
   "collection": "reporting_costs"
 },
+  lumiclass_instructors: {
+  "label": "캠퍼스마루 강사 정산",
+  "firebase": {
+    "apiKey": "AIzaSyABl_R8tK0aLgtHSTJ6yBJQ0pDwXWd_S7A",
+    "authDomain": "lumiclass-ff4a6.firebaseapp.com",
+    "projectId": "lumiclass-ff4a6",
+    "appId": "1:239754447635:web:b8b6d9c41dbabf321d68e6"
+  },
+  "collection": "reporting_instructors",
+  columns: [
+    { key: "nickname", label: "강사 닉네임" },
+    { key: "name", label: "이름" },
+    { key: "email", label: "이메일" },
+    { key: "status", label: "상태(approved 승인·pending 대기·rejected 반려)", category: true },
+    { key: "courses", label: "강의 수", type: "number" },
+    { key: "publishedCourses", label: "공개 강의", type: "number" },
+    { key: "courseTitles", label: "강의 목록" },
+    { key: "students", label: "누적 수강생", type: "number" },
+    { key: "activeStudents", label: "수강 중", type: "number" },
+    { key: "paidOrders", label: "실결제 건수", type: "number" },
+    { key: "grossKRW", label: "누적 결제 총액(원)", type: "number" },
+    { key: "thisMonthKRW", label: "이번 달(원)", type: "number" },
+    { key: "lastMonthKRW", label: "지난달(원)", type: "number" },
+    { key: "refundOrders", label: "환불 건수", type: "number" },
+    { key: "refundedKRW", label: "환불 금액(원)", type: "number" },
+    { key: "creditsSpent", label: "크레딧 수강", type: "number" },
+    { key: "accountRegistered", label: "정산 계좌 등록", type: "bool", category: true },
+    { key: "monthly", label: "월별 결제" },
+    { key: "basis", label: "집계 기준" },
+    { key: "syncedAt", label: "동기화 시각", type: "date" },
+  ]
+},
   aicena: {
   "label": "AICENA",
   "firebase": {
@@ -151,6 +183,7 @@ SOURCES.seongsu.group = "성수역"; SOURCES.egypt.group = "이집트 디펜스"
 SOURCES.lumiclass.group = "캠퍼스마루"; SOURCES.lumiclass.tabLabel = "회원";
 SOURCES.lumiclass_metrics.group = "캠퍼스마루"; SOURCES.lumiclass_metrics.tabLabel = "매출";
 SOURCES.lumiclass_costs.group = "캠퍼스마루"; SOURCES.lumiclass_costs.tabLabel = "비용";
+SOURCES.lumiclass_instructors.group = "캠퍼스마루"; SOURCES.lumiclass_instructors.tabLabel = "강사 정산";
 SOURCES.blaiva = {
   "firebase": {
     "apiKey": "AIzaSyAjLPY8q679CJBjMM1OH1iCqI6aXGbKIxw",
