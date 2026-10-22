@@ -371,3 +371,16 @@ SOURCES.blaiva_updates={firebase:SOURCES.blaiva.firebase,group:'blaiva',label:'b
  {key:'addedCount',label:'추가',type:'number',decimals:0},{key:'removedCount',label:'삭제',type:'number',decimals:0},{key:'editedCount',label:'수정',type:'number',decimals:0},
  {key:'deploy',label:'Firebase 배포',category:true},{key:'backup',label:'GitHub 백업',category:true},{key:'totalVideos',label:'공개 영상',type:'number',kpi:false,decimals:0},{key:'platformSummary',label:'플랫폼별 영상/크리에이터'},
  {key:'lastSuccessKst',label:'최근 성공'},{key:'error',label:'오류'},{key:'changes',label:'변경 영상',type:'links'}]};
+
+// Join account identities by UID without requiring a second OAuth popup for saved profiles.
+SOURCES.blaiva.profileJoins = [
+  SOURCES.blaiva.profileJoin,
+  { collection: 'memberProfiles', fields: ['email', 'name', 'phone', 'registrationComplete'] },
+];
+SOURCES.blaiva.columns.splice(1, 0, { key: 'email', label: '이메일' }, { key: 'name', label: '이름' });
+SOURCES.lumiclass.authJoin = true;
+SOURCES.lumiclass.titleKey = 'name';
+for (const source of [SOURCES.blaiva, SOURCES.blaiva_members, SOURCES.lumiclass]) {
+  source.identityFields = ['email', 'name', 'nickname', 'authEmail'];
+}
+SOURCES.blaiva_members.authJoin = true;

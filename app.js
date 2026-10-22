@@ -5,6 +5,7 @@ const VERSION = window.__APP_VERSION__ || "dev";
 const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
 const { createSession } = await import(`./session.js?v=${encodeURIComponent(VERSION)}`);
+const { joinIdentities } = await import(`./identity.js?v=${encodeURIComponent(VERSION)}`);
 const REVENUE = "revenue";
 const FINANCE = ['finance', REVENUE, 'finance_bunny', 'finance_firebase'];
 const financeLabels = { finance: '총합', revenue: '광고 수익', finance_bunny: 'Bunny 지출', finance_firebase: 'Firebase 지출' };
@@ -86,6 +87,7 @@ function authInfo(u) {
   return {
     authProvider: ps.length ? ps.map((p) => PROVIDER_LABEL[p.providerId] || p.providerId).join("+") : u.customAuth ? "맞춤 인증" : "로그인 방식 미확인",
     authEmail: u.email || ps.find((p) => p.email)?.email || "",
+    authDisplayName: u.displayName || ps.find((p) => p.displayName)?.displayName || "",
     authPlayGamesId: pg?.rawId || "",
     authCreatedAt: u.createdAt ? new Date(Number(u.createdAt)) : null,
     authLastLoginAt: u.lastLoginAt ? new Date(Number(u.lastLoginAt)) : null,
@@ -95,13 +97,7 @@ function authInfo(u) {
 
 // 문서 ID(=UID) 기준으로 Authentication 정보를 붙이고, 세이브 문서가 없는 로그인 계정도 행으로 넣는다.
 function rowsOf(key) {
-  const rows = (state.rows[key] || []).map(r => ({ ...r, ...(state.profiles[key]?.get(r._id) || {}) }));
-  const auth = state.auth[key];
-  if (!auth) return rows;
-  const seen = new Set();
-  const merged = rows.map((r) => { seen.add(r._id); return { ...r, ...(auth.get(r._id) || {}), hasSave: true }; });
-  for (const [uid, a] of auth) if (!seen.has(uid)) merged.push({ _id: uid, ...a, hasSave: false });
-  return merged;
+  return joinIdentities(state.rows[key] || [], state.profiles[key] || [], state.auth[key]);
 }
 
 async function joinAuth() {
@@ -113,9 +109,10 @@ async function joinAuth() {
     setStatus("로그인 정보 불러오는 중…");
     const token = await G.getToken(GOOGLE.clientId, G.SCOPE_AUTH);
     const users = await G.authUsers(token, s.firebase.projectId);
-    if (session.user()?.uid !== owner.uid) return;
+    if (session.user() !== owner) return;
     state.auth[key] = new Map(users.map((u) => [u.localId, authInfo(u)]));
-    s.columns = [...cols().filter((c) => !AUTH_COLUMNS.some((a) => a.key === c.key)), ...AUTH_COLUMNS];
+    s.columns = [...(s.columns || []).filter((c) => !AUTH_COLUMNS.some((a) => a.key === c.key)), ...AUTH_COLUMNS];
+    if (state.src !== key) return;
     setupControls();
     setStatus(`로그인 계정 ${users.length.toLocaleString("ko-KR")}명 합침`, "live");
     render();
@@ -373,11 +370,13 @@ async function connect() {
       setStatus(`실시간 · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
       render();
     }, (err) => { if (ticket === connection) setStatus(err.code === "permission-denied" ? "이 앱의 읽기 권한이 없습니다" : err.message, "err"); }));
-    if (s.profileJoin) stops.push(onSnapshot(collection(db, s.profileJoin.collection), snap => {
+    const profileJoins = s.profileJoins || (s.profileJoin ? [s.profileJoin] : []);
+    profileJoins.forEach((join, index) => stops.push(onSnapshot(collection(db, join.collection), snap => {
       if (ticket !== connection || !session.user()) return;
-      state.profiles[key] = new Map(snap.docs.map(doc => [doc.id, Object.fromEntries(s.profileJoin.fields.filter(field => doc.data()[field] !== undefined).map(field => [field, doc.data()[field]]))]));
+      state.profiles[key] ||= [];
+      state.profiles[key][index] = new Map(snap.docs.map(doc => [doc.id, Object.fromEntries(join.fields.filter(field => doc.data()[field] !== undefined).map(field => [field, doc.data()[field]]))]));
       render();
-    }, err => { if (ticket === connection) setStatus(`프로필 조회 실패: ${err.code}`, "err"); }));
+    }, err => { if (ticket === connection) setStatus(`프로필(${join.collection}) 조회 실패: ${err.code}`, "err"); })));
   } catch (e) { if (ticket === connection) setStatus(e.message, "err"); }
 }
 
@@ -499,10 +498,12 @@ function renderList(rows) {
   const html = rows.slice(0, state.shown).map((r) => {
     const title = r[s.titleKey] || r._id;
     const sub = title !== r._id ? `<div class="item-id">${esc(r._id)}</div>` : "";
+    const identity = s.identityFields?.map(key => r[key] || (key === 'email' ? r.authEmail : '')).filter(Boolean) || [];
+    const details = [...new Set(identity)].map(value => `<div class="item-id">${esc(value)}</div>`).join('');
     const st = stats.map((c) => `<div class="stat"><b>${esc(fmt(r[c.key], c) || "0")}</b><small>${c.label}</small></div>`).join("");
     const tg = tags.map((c) => { const v = catValue(r, c); return v === "(없음)" ? "" : `<span class="pill${c.type === "bool" && isTrue(r[c.key]) ? " yes" : ""}">${c.type === "bool" ? c.label + " " : ""}${esc(v)}</span>`; }).join("");
     const ln = cols().filter((c) => c.type === "links").map((c) => links(r[c.key], 20)).filter(Boolean).map((h) => `<div class="item-links">${h}</div>`).join("");
-    return `<div class="item"><div class="item-h"><div class="item-t">${esc(title)}</div><div class="item-d">${ago(r[s.dateField])}</div></div>${sub}${st ? `<div class="item-stats" style="grid-template-columns:repeat(${stats.length},1fr)">${st}</div>` : ""}<div class="item-tags">${tg}</div>${ln}</div>`;
+    return `<div class="item"><div class="item-h"><div class="item-t">${esc(title)}</div><div class="item-d">${ago(r[s.dateField])}</div></div>${sub}${details}${st ? `<div class="item-stats" style="grid-template-columns:repeat(${stats.length},1fr)">${st}</div>` : ""}<div class="item-tags">${tg}</div>${ln}</div>`;
   }).join("");
   $("list").innerHTML = html || `<div class="empty">${state.rows[state.src] ? "조건에 맞는 항목이 없어요" : "로그인하면 데이터가 표시돼요"}</div>`;
 }
