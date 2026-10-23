@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, getDocsFromServer } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
 const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
@@ -16,6 +16,41 @@ const $ = (id) => document.getElementById(id);
 const PAGE = 100;
 const state = { src: load("src") || "seongsu", rows: {}, profiles: {}, auth: {}, filters: {}, sort: null, unsub: null, shown: PAGE, rev: { rows: null, pick: null } };
 let connection = 0;
+
+// Reload from the server; Authentication details remain a read-only UID join.
+let refreshingInfo = false;
+$("refreshInfoBtn").onclick = async () => {
+ if (refreshingInfo) return;
+ const owner = session.user(), key = state.src, source = SOURCES[key], finance = FINANCE.includes(key);
+ if (!owner) { setStatus('관리 계정으로 먼저 로그인해 주세요.', 'err'); return; }
+ refreshingInfo = true; $("refreshInfoBtn").disabled = true; $("refreshInfoBtn").textContent = '업데이트 중…';
+ setStatus('최신 정보를 불러오는 중…');
+ try {
+  // Begin consent from this user gesture when a separate Google API grant is needed.
+  const authTask = !finance && source.authJoin ? joinAuth({ propagate: true }) : Promise.resolve();
+  const dataTask = (async () => {
+   const { db } = await session.ensure(finance ? 'blaiva_costs' : key);
+   const snapshot = await getDocsFromServer(collection(db, finance ? 'financeReports' : source.collection));
+   const joins = !finance ? (source.profileJoins || (source.profileJoin ? [source.profileJoin] : [])) : [];
+   const profiles = await Promise.all(joins.map(async join => ({ join, snapshot: await getDocsFromServer(collection(db, join.collection)) })));
+   return { snapshot, profiles };
+  })();
+  const results = await Promise.allSettled([dataTask, authTask]);
+  if (session.user() !== owner || state.src !== key) return;
+  if (results[0].status === 'rejected') throw results[0].reason;
+  const { snapshot, profiles } = results[0].value;
+  if (finance) { financeReports = Object.fromEntries(snapshot.docs.map(d => [d.id, d.data()])); financeError = ''; renderFinance(); updateStoredRevenue(); }
+  else {
+   state.rows[key] = snapshot.docs.map(d => ({ _id: d.id, ...d.data() })).filter(row => !source.rowFilter || Object.entries(source.rowFilter).every(([k,v]) => (row[k] ?? (k === 'app' && row._id.startsWith('bunny-20') ? 'blaiva' : undefined)) === v));
+   state.profiles[key] = profiles.map(({join,snapshot}) => new Map(snapshot.docs.map(d => [d.id, Object.fromEntries(join.fields.filter(field => d.data()[field] !== undefined).map(field => [field,d.data()[field]]))])));
+   if (!source.columns && state.rows[key].length) inferColumns(source, state.rows[key]);
+   setupControls(); render();
+  }
+  setStatus(results[1].status === 'rejected' ? '데이터 갱신 완료 · 로그인 정보 조회 실패: ' + results[1].reason.message : '정보 업데이트 완료' + (!finance && source.authJoin ? ' · 로그인 정보 포함' : ''), results[1].status === 'rejected' ? 'err' : 'live');
+ } catch(e) { if (session.user() === owner && state.src === key) setStatus(e.message, 'err'); }
+ finally { refreshingInfo = false; $("refreshInfoBtn").disabled = !session.user(); $("refreshInfoBtn").textContent = '정보 업데이트'; }
+};
+
 const session = createSession({
   sources: SOURCES,
   allowedEmails: ADMIN_EMAILS,
@@ -100,7 +135,7 @@ function rowsOf(key) {
   return joinIdentities(state.rows[key] || [], state.profiles[key] || [], state.auth[key]);
 }
 
-async function joinAuth() {
+async function joinAuth({ propagate = false } = {}) {
   const s = src();
   const key = state.src;
   try {
@@ -118,6 +153,7 @@ async function joinAuth() {
     render();
   } catch (e) {
     setStatus(e.message, "err");
+    if (propagate) throw e;
   }
 }
 
@@ -332,6 +368,7 @@ $("revCsv").onclick = () => {
 };
 
 function renderAuthBtn(user) {
+  $("refreshInfoBtn").disabled = !user || refreshingInfo;
   const b = $("authBtn");
   if (user) {
     // 클릭 전에 준비해 브라우저가 인증 팝업을 사용자 동작으로 인식하게 합니다.
