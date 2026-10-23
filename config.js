@@ -384,3 +384,137 @@ for (const source of [SOURCES.blaiva, SOURCES.blaiva_members, SOURCES.lumiclass]
   source.identityFields = ['email', 'name', 'nickname', 'authEmail'];
 }
 SOURCES.blaiva_members.authJoin = true;
+
+// External Eventus payments: read-only reporting, never bearer codes.
+SOURCES.lumiclass_registrations = {
+ label: '별랩 이벤터스 수강코드', group: SOURCES.lumiclass.group || 'lumiclass', tabLabel: '이벤터스 수강코드', firebase: SOURCES.lumiclass.firebase, collection: 'reporting_registrations', titleKey: 'courseTitle', dateField: 'issuedAt', defaultSort: {key:'issuedAt',dir:-1}, stats: ['paymentAmountKRW','refundAmountKRW','netPaymentKRW'], columns: [
+  {
+    "key": "eventId",
+    "label": "행사 번호"
+  },
+  {
+    "key": "orderId",
+    "label": "이벤터스 주문 번호"
+  },
+  {
+    "key": "ticketId",
+    "label": "참가자·티켓 번호"
+  },
+  {
+    "key": "courseTitle",
+    "label": "강의"
+  },
+  {
+    "key": "purchaserEmail",
+    "label": "결제자 이메일"
+  },
+  {
+    "key": "codeHint",
+    "label": "코드 끝 8자리"
+  },
+  {
+    "key": "codeVersion",
+    "label": "발급 차수",
+    "type": "number"
+  },
+  {
+    "key": "codeStatus",
+    "label": "코드 상태(issued 미사용·used 사용·refund_pending 회수·refunded 환불)",
+    "category": true
+  },
+  {
+    "key": "used",
+    "label": "사용 여부",
+    "type": "bool",
+    "category": true
+  },
+  {
+    "key": "usedBy",
+    "label": "사용 회원 ID"
+  },
+  {
+    "key": "issuedAt",
+    "label": "발급일",
+    "type": "date"
+  },
+  {
+    "key": "usedAt",
+    "label": "사용일",
+    "type": "date"
+  },
+  {
+    "key": "accessUntil",
+    "label": "수강 종료일",
+    "type": "date"
+  },
+  {
+    "key": "activeAccess",
+    "label": "수강권 유효",
+    "type": "bool",
+    "category": true
+  },
+  {
+    "key": "paymentAmountKRW",
+    "label": "외부 결제액",
+    "type": "number"
+  },
+  {
+    "key": "refundStatus",
+    "label": "환불 상태(none 없음·requested 요청·completed 완료)",
+    "category": true
+  },
+  {
+    "key": "refundAmountKRW",
+    "label": "누적 외부 환불액",
+    "type": "number"
+  },
+  {
+    "key": "netPaymentKRW",
+    "label": "결제액−환불액",
+    "type": "number"
+  },
+  {
+    "key": "refundReference",
+    "label": "환불 확인 기록"
+  },
+  {
+    "key": "refundReason",
+    "label": "환불 사유"
+  },
+  {
+    "key": "accessRevoked",
+    "label": "권한 회수",
+    "type": "bool",
+    "category": true
+  },
+  {
+    "key": "refundRequestedAt",
+    "label": "환불 요청일",
+    "type": "date"
+  },
+  {
+    "key": "refundedAt",
+    "label": "외부 환불 확인일",
+    "type": "date"
+  },
+  {
+    "key": "revokedAt",
+    "label": "권한 회수일",
+    "type": "date"
+  },
+  {
+    "key": "updatedAt",
+    "label": "변경일",
+    "type": "date"
+  },
+  {
+    "key": "syncedAt",
+    "label": "보고 동기화",
+    "type": "date"
+  },
+  {
+    "key": "confirmationBasis",
+    "label": "확인 방법"
+  }
+]
+};
