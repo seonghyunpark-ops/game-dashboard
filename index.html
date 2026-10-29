@@ -161,6 +161,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   .status-text{display:none}
 }
 </style>
+<style>.cutline-section{margin-top:18px}.cutline-rates{white-space:pre-wrap;overflow-wrap:anywhere;padding:0 20px 16px;color:var(--muted);font-size:12px}#cutlineView .note{line-height:1.7}</style>
 </head>
 <body>
 <div class="top">
@@ -174,6 +175,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   <nav class="subtabs" id="subtabs" aria-label="데이터 종류" hidden></nav>
 </div>
 <main>
+  <div id="cutlineView" hidden><div class="note" id="cutlineNote" role="status"></div><div id="cutlineContent"></div></div>
     <div id="financeView" hidden>
       <div class="searchrow"><label>집계 월 <input type="month" id="financeMonth" aria-label="재무 집계 월"></label><button class="btn primary" id="financeAd">이 달 광고 수익 연결</button><button class="btn" id="financeCsv">재무 CSV</button></div>
       <div class="note" id="financeNote"></div>

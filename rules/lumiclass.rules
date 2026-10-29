@@ -7,9 +7,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /{report}/{document} {
-      allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];
+      allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr'];
     }
-    match /{report}/{document} { allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email == 'lee.ike1@gmail.com'; }
+    match /{report}/{document} { allow read: if report in ['reporting_users', 'reporting_metrics', 'reporting_costs'] && request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr']; }
 
   }
 }

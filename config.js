@@ -24,9 +24,6 @@ export const ADMIN_EMAILS = [
   "juyi.kim@theant.kr",
   "hyerin.kim@theant.kr",
   "seonghyun.park@theant.kr",
-  "psh920122@gmail.com",
-  "theantplay55@gmail.com",
-  "lee.ike1@gmail.com",
 ];
 
 export const SOURCES = {

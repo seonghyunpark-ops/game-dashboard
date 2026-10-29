@@ -6,6 +6,8 @@ const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${e
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
 const { createSession } = await import(`./session.js?v=${encodeURIComponent(VERSION)}`);
 const { joinIdentities } = await import(`./identity.js?v=${encodeURIComponent(VERSION)}`);
+const { createUsageLoader, renderUsage } = await import(`./cutline.js?v=${encodeURIComponent(VERSION)}`);
+const CUTLINE = 'cutline_usage';
 const REVENUE = "revenue";
 const FINANCE = ['finance', REVENUE, 'finance_bunny', 'finance_firebase'];
 const financeLabels = { finance: '총합', revenue: '광고 수익', finance_bunny: 'Bunny 지출', finance_firebase: 'Firebase 지출' };
@@ -20,6 +22,7 @@ let connection = 0;
 // Reload from the server; Authentication details remain a read-only UID join.
 let refreshingInfo = false;
 $("refreshInfoBtn").onclick = async () => {
+ if (state.src === 'cutline_usage') { await connectCutline(); return; }
  if (refreshingInfo) return;
  const owner = session.user(), key = state.src, source = SOURCES[key], finance = FINANCE.includes(key);
  if (!owner) { setStatus('관리 계정으로 먼저 로그인해 주세요.', 'err'); return; }
@@ -67,7 +70,9 @@ const session = createSession({
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
     renderAuthBtn(session.user());
     financeStop?.(); financeStop = null; financeReports = {}; financeGeneration++;
-    if (!FINANCE.includes(state.src)) connect(); else connectFinance();
+    cutlineLoader.cancel();
+    if (state.src === CUTLINE) connectCutline();
+    else if (!FINANCE.includes(state.src)) connect(); else connectFinance();
   },
 });
 function startAdAuthorization(month) {
@@ -210,7 +215,8 @@ function renderTabs() {
     groups.get(group).push(key);
   }
   groups.set("재무 총합", FINANCE);
-  const selected = FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
+  groups.set("Cutline", [CUTLINE]);
+  const selected = state.src === CUTLINE ? 'Cutline' : FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
   $("tabs").replaceChildren(); $("subtabs").replaceChildren();
   for (const [group, keys] of groups) {
     const b = document.createElement("button");
@@ -233,16 +239,20 @@ function renderTabs() {
 }
 
 function switchSource(key) {
+  cutlineLoader.cancel();
   state.src = key;
   save("src", key);
-  if (!FINANCE.includes(key)) save(`group.${src().group || src().label}`, key);
+  if (key === CUTLINE) save('group.Cutline', key);
+  else if (!FINANCE.includes(key)) save(`group.${src().group || src().label}`, key);
   else save('group.재무 총합', key);
   const rev = key === REVENUE;
   const finance = FINANCE.includes(key) && !rev;
   $("revenueView").hidden = !rev;
   $("financeView").hidden = !finance;
-  $("dataView").hidden = rev || finance;
+  $("cutlineView").hidden = key !== CUTLINE;
+  $("dataView").hidden = rev || finance || key === CUTLINE;
   financeStop?.(); financeStop = null; financeGeneration++;
+  if (key === CUTLINE) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectCutline(); return; }
   if (finance) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectFinance(); return; }
   if (rev) {
     connection++;
@@ -664,6 +674,19 @@ $('financeCsv').onclick = () => {
   const data = [['월','항목','대상','통화','수입','지출','기준'], ...financeData().rows.map(r => [$('financeMonth').value,r.category,r.app,r.currency,r.income,r.expense,r.basis])];
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob(['\uFEFF' + data.map(r=>r.map(q).join(',')).join('\n')], {type:'text/csv'})); a.href=url; a.download=`finance_${$('financeMonth').value}.csv`; a.click(); URL.revokeObjectURL(url);
 };
-if (!FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
+const cutlineLoader = createUsageLoader({ owner: () => session.user(), publish: ({data,error}) => {
+  if (state.src !== CUTLINE) return;
+  $('cutlineContent').innerHTML = data ? renderUsage(data) : '';
+  $('cutlineNote').textContent = error || '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.';
+  setStatus(error || 'Cutline 집계 불러옴', error ? 'err' : 'live');
+} });
+async function connectCutline() {
+  renderAuthBtn(session.user());
+  $('cutlineContent').replaceChildren();
+  $('cutlineNote').textContent = session.user() ? 'Cutline 사용량을 불러오는 중…' : '관리 계정 로그인 후 표시됩니다.';
+  setStatus(session.user() ? 'Cutline 조회 중…' : '관리 계정 로그인 필요');
+  await cutlineLoader.load();
+}
+if (state.src !== CUTLINE && !FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
 switchSource(state.src);

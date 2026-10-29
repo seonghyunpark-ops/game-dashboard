@@ -16,7 +16,7 @@ service cloud.firestore {
    allow create, update: if signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['saved','seconds','duration','updatedAt']) && request.resource.data.saved is bool && request.resource.data.seconds is number && request.resource.data.seconds >= 0 && request.resource.data.duration is number && request.resource.data.duration >= request.resource.data.seconds && request.resource.data.updatedAt is number;
   }
   match /{document=**} {allow read, write: if false;}
-    match /accounts/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com', 'lee.ike1@gmail.com']; }
+    match /accounts/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr']; }
 
  }
 }

@@ -4,7 +4,7 @@
 
     function isOwner() {
       return request.auth != null
-        && request.auth.token.email == 'OWNER_EMAIL'
+        && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr']
         && request.auth.token.email_verified == true;
     }
 

@@ -48,7 +48,7 @@ service cloud.firestore {
 
       // 본인 문서만 읽기
       allow read: if isOwner();
-      allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com'];
+      allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr'];
 
       // 신규 가입(create)
       //  - 키는 화이트리스트 안에서만
@@ -105,7 +105,7 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
-    match /users/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email == 'lee.ike1@gmail.com'; }
+    match /users/{uid} { allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr']; }
 
   }
 }

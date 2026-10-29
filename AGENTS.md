@@ -20,7 +20,7 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 3. Authentication > 설정 > 승인된 도메인에 `seonghyunpark-ops.github.io` 추가.
    (Google Cloud 프로젝트 IAM 에 theantplay55@gmail.com 을 소유자로 두면 로그인 정보 합치기도 그 계정으로 가능)
 4. Firestore 규칙에 소유자 읽기 추가(아래 이메일만):
-   `allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['seonghyun.park@theant.kr', 'psh920122@gmail.com', 'theantplay55@gmail.com', 'lee.ike1@gmail.com'];`
+   `allow read: if request.auth != null && request.auth.token.email_verified == true && request.auth.token.email in ['hc.lee@theant.kr', 'hyunjin.kim@theant.kr', 'juyi.kim@theant.kr', 'hyerin.kim@theant.kr', 'seonghyun.park@theant.kr'];`
 5. `config.js` 의 `SOURCES` 에 항목 추가:
    ```js
    newgame: {
@@ -52,3 +52,11 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 - 공통 클라이언트의 기존 리디렉션 URI를 보존하고 각 앱의 `https://<project-id>.firebaseapp.com/__/auth/handler`를 함께 등록한다. 2026-10-16 사용자가 AICENA·LumiClass·이집트 콜백 추가 저장을 완료했다.
 - Google 제공자의 클라이언트 비밀값은 Google 설정 사이에서만 전달한다. 파일·로그·저장소에 저장하지 않는다. `config.js`의 별도 Google API 클라이언트(광고 수익·Authentication 목록용)와 혼동하지 않는다.
 - Google 프로젝트 조회 API의 `clientId` 검사 결과만으로 외부 클라이언트의 실제 Firebase 로그인을 판정하지 않는다. 대시보드에서 실제 Google 로그인 후 프로젝트별 세션 연결과 Firestore 조회를 검증한다.
+
+## Cutline 사용량 (2026-10-29)
+- 관리 이메일은 위의 회사 계정 5명만 허용한다. 이전 개인 Gmail 계정은 허용 목록에서 제거했다.
+- Cutline은 `SOURCES`에 넣지 않는 별도 사용량 탭이다. `cutline.js`에서 기본 프로젝트 `hazel-form-493202-a1`의 `session.user().getIdToken()`을 Bearer로 전달한다.
+- 읽기 전용 API: `https://asia-northeast3-cutline-antstudio.cloudfunctions.net/cutlineUsageDashboard`. 백엔드는 기본 프로젝트 토큰과 검증된 회사 이메일 5명을 검사한다. Cutline의 별도 OAuth 세션 연결은 필요하지 않다.
+- 저장 용량·객체 수, 이번 달 전송량·월말 예측, 서비스별 추정 비용, 공식 요금 기준·확인일, Firebase 최신 업데이트를 표시한다. 수집 실패와 미수집은 0으로 표시하지 않는다. 추정 비용은 최종 청구액이 아니다.
+- `cutline.test.mjs`는 미수집/0 구분, 로그아웃·탭 이동 후 늦은 응답 폐기, 토큰 처리, 링크 이스케이프, 관리자 목록 일치를 검사한다. 전체 검사: `node --test *.test.mjs`.
+- 운영 규칙 변경 시 반드시 현재 게시본을 읽어서 대시보드 읽기 이메일 조건만 변경한다. 기존 게임의 쓰기·소유자·custom claim 권한은 보존한다.
