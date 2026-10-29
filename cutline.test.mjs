@@ -53,3 +53,9 @@ test('forbidden response has actionable error and never exposes response body', 
   const user = { getIdToken: async () => 'token' };
   await loader.load(); assert.match(result.error, /권한/);
 });
+test('diagnostic traffic, full cost exclusions, rounded days and components are visible', () => {
+  const html = renderUsage({ period: { elapsedDays: 28.259359467, totalDays:31 }, bandwidth:{ components:[{label:'Cloud Run',bytes:1024,status:'ok'}],coverage:'source coverage' }, cost:{disclaimer:'source disclaimer'} });
+  assert.match(html, /28\.3 \/ 31일/);
+  assert.doesNotMatch(html, /28\.259/);
+  for (const text of ['진단용','내부·중복 트래픽','청구 대역폭이 아닙니다','컴퓨팅','Firestore','작업 요금','세금','Cloud Run','1 KiB','source coverage','source disclaimer']) assert.ok(html.includes(text), text);
+});
