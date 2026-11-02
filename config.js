@@ -515,3 +515,22 @@ SOURCES.lumiclass_registrations = {
   }
 ]
 };
+
+// blaiva 방문 통계. 앱·웹이 보낸 방문을 서버가 한국 날짜별 합계 숫자로만 모읍니다(IP·기기 ID·회원 정보 없음).
+// 문서 하나가 하루치이고, 유입·플랫폼 같은 칸은 { 값: 횟수 } 묶음이라 많이 들어온 순서로 풀어서 보여 줍니다.
+const topCounts = (map, n = 6) => Object.entries(map || {}).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${k} ${v}`).join(' · ');
+SOURCES.blaiva_traffic = {
+ firebase: SOURCES.blaiva.firebase, group: 'blaiva', label: 'blaiva 방문 통계', tabLabel: '방문 통계', collection: 'trafficDaily', titleKey: '_id', dateField: 'updatedAt', defaultSort: { key: '_id', dir: -1 },
+ stats: ['visits', 'newVisits', 'returningVisits', 'plays', 'favorites', 'signups'],
+ rowMap: r => ({ ...r, plays: r.events?.play || 0, favorites: r.events?.favorite || 0, signups: r.events?.signup || 0,
+  sourceTop: topCounts(r.source), campaignTop: topCounts(r.campaign), referrerTop: topCounts(r.referrer), mediumTop: topCounts(r.medium),
+  landingTop: topCounts(r.landing), platformTop: topCounts(r.platform), deviceTop: topCounts(r.device), langTop: topCounts(r.lang), editionTop: topCounts(r.edition),
+  peakHour: Object.entries(r.hour || {}).sort((a, b) => b[1] - a[1])[0]?.[0] ? `${Object.entries(r.hour).sort((a, b) => b[1] - a[1])[0][0]}시` : '' }),
+ latestSummary: (r, date, esc) => `<b>${esc(r._id)}</b> 방문 ${Number(r.visits || 0).toLocaleString('ko-KR')} (신규 ${r.newVisits || 0} · 재방문 ${r.returningVisits || 0}) · 재생 ${r.plays} · 찜 ${r.favorites} · 가입 ${r.signups}<br><b>유입</b> ${esc(r.sourceTop || '없음')}<br><b>캠페인</b> ${esc(r.campaignTop || '없음')}`,
+ columns: [
+  { key: '_id', label: '날짜(KST)' }, { key: 'visits', label: '방문', type: 'number', decimals: 0 }, { key: 'newVisits', label: '신규', type: 'number', decimals: 0 }, { key: 'returningVisits', label: '재방문', type: 'number', decimals: 0 },
+  { key: 'plays', label: '재생', type: 'number', decimals: 0 }, { key: 'favorites', label: '찜', type: 'number', decimals: 0 }, { key: 'signups', label: '가입', type: 'number', decimals: 0 },
+  { key: 'sourceTop', label: '유입 출처' }, { key: 'campaignTop', label: 'utm 캠페인' }, { key: 'referrerTop', label: '이전 사이트' }, { key: 'mediumTop', label: '유입 매체' },
+  { key: 'landingTop', label: '첫 화면' }, { key: 'platformTop', label: '웹/앱' }, { key: 'deviceTop', label: '기기' }, { key: 'langTop', label: '언어' }, { key: 'editionTop', label: '판' }, { key: 'peakHour', label: '가장 붐빈 시각' },
+  { key: 'updatedAt', label: '마지막 기록', type: 'date' }],
+};

@@ -44,7 +44,7 @@ $("refreshInfoBtn").onclick = async () => {
   const { snapshot, profiles } = results[0].value;
   if (finance) { financeReports = Object.fromEntries(snapshot.docs.map(d => [d.id, d.data()])); financeError = ''; renderFinance(); updateStoredRevenue(); }
   else {
-   state.rows[key] = snapshot.docs.map(d => ({ _id: d.id, ...d.data() })).filter(row => !source.rowFilter || Object.entries(source.rowFilter).every(([k,v]) => (row[k] ?? (k === 'app' && row._id.startsWith('bunny-20') ? 'blaiva' : undefined)) === v));
+   state.rows[key] = snapshot.docs.map(d => ({ _id: d.id, ...d.data() })).map(row => source.rowMap ? source.rowMap(row) : row).filter(row => !source.rowFilter || Object.entries(source.rowFilter).every(([k,v]) => (row[k] ?? (k === 'app' && row._id.startsWith('bunny-20') ? 'blaiva' : undefined)) === v));
    state.profiles[key] = profiles.map(({join,snapshot}) => new Map(snapshot.docs.map(d => [d.id, Object.fromEntries(join.fields.filter(field => d.data()[field] !== undefined).map(field => [field,d.data()[field]]))])));
    if (!source.columns && state.rows[key].length) inferColumns(source, state.rows[key]);
    setupControls(); render();
@@ -412,7 +412,7 @@ async function connect() {
     state.unsub = () => stops.forEach(stop => stop());
     stops.push(onSnapshot(collection(db, s.collection), (snap) => {
       if (ticket !== connection || !session.user()) return;
-      state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() })).filter(row => !s.rowFilter || Object.entries(s.rowFilter).every(([k, v]) => (row[k] ?? (k === 'app' && row._id.startsWith('bunny-20') ? 'blaiva' : undefined)) === v));
+      state.rows[key] = snap.docs.map((d) => ({ _id: d.id, ...d.data() })).map(row => s.rowMap ? s.rowMap(row) : row).filter(row => !s.rowFilter || Object.entries(s.rowFilter).every(([k, v]) => (row[k] ?? (k === 'app' && row._id.startsWith('bunny-20') ? 'blaiva' : undefined)) === v));
       if (!s.columns && state.rows[key].length) { inferColumns(s, state.rows[key]); setupControls(); }
       setStatus(`실시간 · ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`, "live");
       render();
