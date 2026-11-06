@@ -534,3 +534,33 @@ SOURCES.blaiva_traffic = {
   { key: 'landingTop', label: '첫 화면' }, { key: 'platformTop', label: '웹/앱' }, { key: 'deviceTop', label: '기기' }, { key: 'langTop', label: '언어' }, { key: 'editionTop', label: '판' }, { key: 'peakHour', label: '가장 붐빈 시각' },
   { key: 'updatedAt', label: '마지막 기록', type: 'date' }],
 };
+
+// blaiva 신고·운영 조치(2026-11-06). 처리는 blaiva.com 내 계정 → 신고·검수 관리(#/moderation)에서 하고, 여기서는 읽기만 합니다.
+// 신고자 계정 ID(reporterUid)는 보여 주지 않습니다. 미성년자·불법촬영 신고는 접수 즉시 서비스에서 가려집니다.
+const REPORT_REASONS = { sexual: '성적인 내용·19금', minor: '미성년자 성적 표현(긴급)', nonconsensual: '불법촬영·딥페이크(긴급)', violence: '폭력·혐오·괴롭힘', rights: '저작권·초상권', spam: '스팸·광고', other: '기타' };
+const REPORT_OUTCOMES = { approve: '공개 승인', hide: '숨김', restore: '문제없음·공개', delete: '삭제', dismiss: '문제없음', dismissed: '문제없음', suspend: '이용 정지', unsuspend: '정지 해제' };
+const reportRow = r => ({ ...r, reasonLabel: REPORT_REASONS[r.category] || r.category || '기타(예전 신고)', statusLabel: r.status === 'resolved' ? '처리됨' : '처리 대기', outcomeLabel: REPORT_OUTCOMES[r.outcome] || r.outcome || '' });
+const reportColumns = [
+ { key: 'statusLabel', label: '상태', category: true }, { key: 'reasonLabel', label: '사유', category: true }, { key: 'reason', label: '신고 내용' },
+ { key: 'createdAt', label: '접수', type: 'date' }, { key: 'outcomeLabel', label: '처리', category: true }, { key: 'resolvedBy', label: '처리자', category: true }, { key: 'resolvedAt', label: '처리 시각', type: 'date' }];
+const reportSummary = label => (r, date, esc) => `<b>최근 ${label}</b> ${esc(date(r.createdAt))} · ${esc(r.reasonLabel)} · <b>${esc(r.statusLabel)}</b><br>처리는 <a href="https://blaiva.com/#/moderation" target="_blank" rel="noopener">blaiva 신고·검수 관리</a>에서 합니다. 접수 후 24시간 안에 처리합니다.`;
+SOURCES.blaiva_video_reports = {
+ firebase: SOURCES.blaiva.firebase, group: 'blaiva', label: 'blaiva 작품 신고', tabLabel: '작품 신고', collection: 'videoReports', titleKey: 'title', dateField: 'createdAt', defaultSort: { key: 'createdAt', dir: -1 },
+ rowMap: reportRow, latestSummary: reportSummary('작품 신고'),
+ columns: [{ key: 'title', label: '작품' }, { key: 'videoId', label: '작품 ID' }, ...reportColumns],
+};
+SOURCES.blaiva_comment_reports = {
+ firebase: SOURCES.blaiva.firebase, group: 'blaiva', label: 'blaiva 댓글 신고', tabLabel: '댓글 신고', collection: 'commentReports', titleKey: 'commentText', dateField: 'createdAt', defaultSort: { key: 'createdAt', dir: -1 },
+ rowMap: reportRow, latestSummary: reportSummary('댓글 신고'),
+ columns: [{ key: 'commentText', label: '신고된 댓글' }, { key: 'videoKey', label: '영상 ID', category: true }, { key: 'commentId', label: '댓글 ID' }, ...reportColumns],
+};
+SOURCES.blaiva_user_reports = {
+ firebase: SOURCES.blaiva.firebase, group: 'blaiva', label: 'blaiva 회원 신고', tabLabel: '회원 신고', collection: 'userReports', titleKey: 'targetUid', dateField: 'createdAt', defaultSort: { key: 'createdAt', dir: -1 },
+ rowMap: reportRow, latestSummary: reportSummary('회원 신고'),
+ columns: [{ key: 'targetUid', label: '신고된 회원 UID' }, { key: 'videoId', label: '관련 작품 ID' }, { key: 'commentId', label: '관련 댓글 ID' }, ...reportColumns],
+};
+SOURCES.blaiva_moderation = {
+ firebase: SOURCES.blaiva.firebase, group: 'blaiva', label: 'blaiva 운영 조치', tabLabel: '운영 조치', collection: 'moderationLog', titleKey: 'action', dateField: 'at', defaultSort: { key: 'at', dir: -1 },
+ rowMap: r => ({ ...r, kindLabel: { video: '작품', comment: '댓글', user: '회원', settings: '설정' }[r.kind] || r.kind, actionLabel: REPORT_OUTCOMES[String(r.action || '').split(':')[0]] || r.action }),
+ columns: [{ key: 'at', label: '시각', type: 'date' }, { key: 'kindLabel', label: '대상', category: true }, { key: 'actionLabel', label: '조치', category: true }, { key: 'action', label: '조치 원문' }, { key: 'targetId', label: '대상 ID' }, { key: 'note', label: '메모' }, { key: 'admin', label: '처리자', category: true }],
+};

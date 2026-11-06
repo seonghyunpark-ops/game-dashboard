@@ -60,3 +60,6 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 - 저장 용량·객체 수, 이번 달 전송량·월말 예측, 서비스별 추정 비용, 공식 요금 기준·확인일, Firebase 최신 업데이트를 표시한다. 수집 실패와 미수집은 0으로 표시하지 않는다. 추정 비용은 최종 청구액이 아니다.
 - `cutline.test.mjs`는 미수집/0 구분, 로그아웃·탭 이동 후 늦은 응답 폐기, 토큰 처리, 링크 이스케이프, 관리자 목록 일치를 검사한다. 전체 검사: `node --test *.test.mjs`.
 - 운영 규칙 변경 시 반드시 현재 게시본을 읽어서 대시보드 읽기 이메일 조건만 변경한다. 기존 게임의 쓰기·소유자·custom claim 권한은 보존한다.
+## blaiva 신고·운영 조치 (2026-11-06)
+- `config.js` 끝의 `blaiva_video_reports`(videoReports)·`blaiva_comment_reports`(commentReports)·`blaiva_user_reports`(userReports)·`blaiva_moderation`(moderationLog) 탭. 읽기 전용이며 처리(숨김·삭제·정지)는 blaiva.com `#/moderation`에서 한다.
+- 신고자 UID(`reporterUid`)는 컬럼에 넣지 않는다. 사유 코드는 `REPORT_REASONS`로 한국어 표시. blaiva 운영 규칙(`firestore.rules`)의 대시보드 읽기 목록에 네 컬렉션이 들어 있다.
