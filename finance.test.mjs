@@ -7,6 +7,11 @@ test('계정 Bunny 금액만 합산하고 앱별 추정·잔액은 중복 합산
   assert.equal(result.totals.KRW.income, 5);
   assert.deepEqual(result.missing, []);
 });
+test('크레딧으로 지출이 0이어도 Firebase 사용료를 따로 보여 주고 지출에는 더하지 않는다', () => {
+  const result = summarizeFinance({ firebase: { status: 'ready', rows: [{ project: 'a', currency: 'KRW', cost: 154.2, credits: -154.2, net: 0 }, { project: 'b', currency: 'KRW', cost: 10, credits: -10, net: 0 }] } }, [], '2026-11', 'KRW');
+  assert.equal(result.usage.KRW, 164.2);
+  assert.equal(result.totals.KRW.expense, 0);
+});
 test('미연결과 실제 0을 구분한다', () => {
   assert.equal(summarizeFinance(null, null, '2026-10', 'KRW').missing.length, 3);
   assert.equal(summarizeFinance({ bunny: { amount: 0 }, firebase: { status: 'ready', rows: [] } }, [], '2026-10', 'KRW').missing.length, 0);

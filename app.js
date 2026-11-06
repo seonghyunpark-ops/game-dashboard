@@ -648,16 +648,19 @@ function renderFinance() {
   const month = $('financeMonth').value, report = financeReports[month], result = financeData();
   const show = state.src === 'finance_bunny' ? 'Bunny' : state.src === 'finance_firebase' ? 'Firebase / GCP' : null;
   const rows = result.rows.filter(r => !show || r.category === show);
-  const fm = (v, currency) => Number(v).toLocaleString('ko-KR', { style: 'currency', currency, maximumFractionDigits: currency === 'KRW' ? 2 : 6 });
+  // 크레딧 상계 뒤 남는 소수 오차가 -₩0.00으로 보이지 않게 합니다.
+  const fm = (v, currency) => Number(currency === 'KRW' && Math.abs(v) < 0.005 ? 0 : v).toLocaleString('ko-KR', { style: 'currency', currency, maximumFractionDigits: currency === 'KRW' ? 2 : 6 });
   $('financeTitle').textContent = financeLabels[state.src] || '재무 총합';
   $('financeNote').textContent = financeError || (!session.user() ? '관리 계정 로그인 후 표시됩니다.' : `${month} · ${result.missing.length ? '집계 대기: ' + result.missing.join(' · ') : '세 항목 연결됨'}. 서로 다른 통화는 합산하지 않습니다. 손익은 조회된 항목만의 추정치이며 최종 청구·정산과 다를 수 있습니다.`);
-  $('financeKpis').innerHTML = Object.entries(result.totals).flatMap(([currency,t]) => [[fm(t.income,currency), `${currency} 수입`], [fm(t.expense,currency), `${currency} 지출`], [fm(t.net,currency), `${currency} 수입−지출 · ${result.missing.length ? '일부 집계' : '사용 기준'}`]]).map(([v,l]) => `<div class="kpi"><b>${esc(v)}</b><small>${esc(l)}</small></div>`).join('') || '<div class="kpi"><b>집계 대기</b><small>조회되지 않은 비용은 0원이 아닙니다</small></div>';
+  $('financeKpis').innerHTML = Object.entries(result.totals).flatMap(([currency,t]) => [[fm(t.income,currency), `${currency} 수입`], [fm(t.expense,currency), `${currency} 지출`], [fm(t.net,currency), `${currency} 수입−지출 · ${result.missing.length ? '일부 집계' : '사용 기준'}`], ...(currency in result.usage ? [[fm(result.usage[currency],currency), 'Firebase 사용료 · 크레딧 전']] : [])]).map(([v,l]) => `<div class="kpi"><b>${esc(v)}</b><small>${esc(l)}</small></div>`).join('') || '<div class="kpi"><b>집계 대기</b><small>조회되지 않은 비용은 0원이 아닙니다</small></div>';
   $('financeHead').innerHTML = '<tr><th>항목</th><th>대상</th><th>수입</th><th>지출</th><th>기준</th></tr>';
   $('financeBody').innerHTML = rows.map(r => `<tr><td>${esc(r.category)}</td><td>${esc(r.app)}</td><td>${esc(fm(r.income,r.currency))}</td><td>${esc(fm(r.expense,r.currency))}</td><td>${esc(r.basis)}</td></tr>`).join('') || '<tr><td colspan="5">아직 집계된 항목이 없습니다.</td></tr>';
   const checked = report?.checkedAt?.toDate?.();
   $('financeChecked').textContent = checked ? '갱신 ' + checked.toLocaleString('ko-KR') : '';
   const b = report?.bunny;
   const details = b ? [`Bunny 계정 청구 집계만 총합에 반영합니다. 아래는 체험·크레딧을 적용하지 않은 앱별 사용 원가 추정이며 중복 합산하지 않습니다.`, ...b.apps.map(a => `${a.app}: 저장 ${(a.storageBytes/1e9).toFixed(3)} GB · 전송 ${(a.bandwidthBytes/1e9).toFixed(3)} GB · 저장 ${fm(a.storageUsd,'USD')} + 전송 ${fm(a.deliveryUsd,'USD')} = ${fm(a.estimatedUsd,'USD')} 추정 (${a.regions}개 지역, $${a.storageUsdPerGbMonth}/GB·월)`), `Bunny 잔액: ${b.balance == null ? '미확인' : fm(b.balance,'USD')} · 체험 잔액: ${b.trialBalance == null ? '미확인' : fm(b.trialBalance,'USD')} · 체험 종료: ${b.trialUntil || '미확인'}. 잔액·충전액·크레딧을 사용료에 더하지 않습니다.`] : [];
+  const exported = Math.max(0, ...(report?.firebase?.rows || []).map(r => Number(r.lastExport) || 0));
+  if (exported) details.push(`Firebase 결제 데이터 마지막 수신 ${new Date(exported * 1000).toLocaleString('ko-KR')} · Google 결제 내보내기는 몇 시간 늦게 들어옵니다. 지출은 크레딧을 뺀 금액이라 크레딧이 남아 있으면 0원입니다.`);
   details.push(report?.firebase?.note || 'Firebase / Google Cloud: 결제 내보내기 첫 데이터 수신 대기. 함수·Firestore·Hosting 등 프로젝트별 GCP 서비스 비용과 크레딧을 함께 집계합니다.');
   const ad=report?.admob,adTime=ad?.checkedAt?.toDate?.();
   details.push('Bunny·Firebase 매시간 자동 수집 · 화면은 새 집계 수신 시 자동 반영됩니다.');

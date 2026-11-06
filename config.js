@@ -516,6 +516,17 @@ SOURCES.lumiclass_registrations = {
 ]
 };
 
+// blaiva 신고. 회원이 앱·웹에서 접수하면 바로 보입니다. 처리(숨김·삭제·정지)는 blaiva #/moderation에서 하고 여기서는 읽기만 합니다.
+const REPORT_CATEGORIES = { sexual: '성적인 내용·19금', minor: '미성년자 성적 표현(긴급)', nonconsensual: '불법촬영·딥페이크(긴급)', violence: '폭력·혐오·괴롭힘', rights: '저작권·초상권', spam: '스팸·광고', other: '기타' };
+const reportRow = r => ({ ...r, categoryLabel: REPORT_CATEGORIES[r.category] || r.category || '미분류', statusLabel: r.status === 'open' ? '처리 대기' : r.status ? '처리 완료' : '미분류' });
+const reportSource = (label, tabLabel, collection, titleKey, targetColumns) => ({
+ firebase: SOURCES.blaiva.firebase, group: 'blaiva', label, tabLabel, collection, titleKey, dateField: 'createdAt', defaultSort: { key: 'createdAt', dir: -1 }, rowMap: reportRow,
+ columns: [{ key: 'statusLabel', label: '상태', category: true }, { key: 'categoryLabel', label: '사유', category: true }, ...targetColumns, { key: 'reason', label: '자세한 내용' }, { key: 'reporterUid', label: '신고 회원 UID' }, { key: 'createdAt', label: '접수일', type: 'date' }, { key: 'updatedAt', label: '최근 변경', type: 'date' }],
+});
+SOURCES.blaiva_video_reports = reportSource('blaiva 작품 신고', '작품 신고', 'videoReports', 'title', [{ key: 'title', label: '작품' }, { key: 'videoId', label: '작품 ID' }, { key: 'ownerUid', label: '업로드 회원 UID' }]);
+SOURCES.blaiva_comment_reports = reportSource('blaiva 댓글 신고', '댓글 신고', 'commentReports', 'commentText', [{ key: 'commentText', label: '댓글 내용' }, { key: 'videoKey', label: '영상 ID' }, { key: 'authorUid', label: '작성 회원 UID' }]);
+SOURCES.blaiva_user_reports = reportSource('blaiva 회원 신고', '회원 신고', 'userReports', 'targetUid', [{ key: 'targetUid', label: '신고된 회원 UID' }, { key: 'videoId', label: '관련 작품 ID' }, { key: 'commentId', label: '관련 댓글 ID' }]);
+
 // blaiva 방문 통계. 앱·웹이 보낸 방문을 서버가 한국 날짜별 합계 숫자로만 모읍니다(IP·기기 ID·회원 정보 없음).
 // 문서 하나가 하루치이고, 유입·플랫폼 같은 칸은 { 값: 횟수 } 묶음이라 많이 들어온 순서로 풀어서 보여 줍니다.
 const topCounts = (map, n = 6) => Object.entries(map || {}).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${k} ${v}`).join(' · ');
