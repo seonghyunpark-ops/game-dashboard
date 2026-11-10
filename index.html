@@ -161,6 +161,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   .status-text{display:none}
 }
 </style>
+<style>#gaView .ga-h{margin:22px 0 8px;font-size:15px}#gaView .table-wrap{overflow-x:auto}#gaView table{width:100%;border-collapse:collapse;font-size:13px}#gaView th,#gaView td{padding:6px 8px;border-bottom:1px solid var(--line,#ddd);text-align:left;white-space:nowrap}</style>
 <style>.cutline-section{margin-top:18px}#cutlineView .note{line-height:1.7}#cutlineView .cutline-notice{display:block;white-space:normal;overflow:visible;text-overflow:clip;max-height:none;-webkit-line-clamp:unset;overflow-wrap:anywhere}</style>
 </head>
 <body>
@@ -175,6 +176,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   <nav class="subtabs" id="subtabs" aria-label="데이터 종류" hidden></nav>
 </div>
 <main>
+  <div id="gaView" hidden><div class="searchrow"><button class="btn primary" id="gaLoad">GA 불러오기</button></div><div class="note" id="gaNote" role="status"></div><div id="gaContent"></div></div>
   <div id="cutlineView" hidden><div class="note" id="cutlineNote" role="status"></div><div id="cutlineContent"></div></div>
     <div id="financeView" hidden>
       <div class="searchrow"><label>집계 월 <input type="month" id="financeMonth" aria-label="재무 집계 월"></label><button class="btn primary" id="financeAd">이 달 광고 수익 연결</button><button class="btn" id="financeCsv">재무 CSV</button></div>
