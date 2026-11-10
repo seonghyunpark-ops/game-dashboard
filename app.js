@@ -2,12 +2,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot, getDocsFromServer } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const VERSION = window.__APP_VERSION__ || "dev";
-const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
+const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS, GA4 } = await import(`./config.js?v=${encodeURIComponent(VERSION)}`);
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
 const { createSession } = await import(`./session.js?v=${encodeURIComponent(VERSION)}`);
 const { joinIdentities } = await import(`./identity.js?v=${encodeURIComponent(VERSION)}`);
 const { createUsageLoader, renderUsage } = await import(`./cutline.js?v=${encodeURIComponent(VERSION)}`);
 const CUTLINE = 'cutline_usage';
+const GA = await import(`./ga4.js?v=${encodeURIComponent(VERSION)}`);
+const GA_TAB = 'blaiva_ga';
+let gaGeneration = 0;
 const REVENUE = "revenue";
 const FINANCE = ['finance', REVENUE, 'finance_bunny', 'finance_firebase'];
 const financeLabels = { finance: '총합', revenue: '광고 수익', finance_bunny: 'Bunny 지출', finance_firebase: 'Firebase 지출' };
@@ -23,6 +26,7 @@ let connection = 0;
 let refreshingInfo = false;
 $("refreshInfoBtn").onclick = async () => {
  if (state.src === 'cutline_usage') { await connectCutline(); return; }
+ if (state.src === 'blaiva_ga') { await loadGa(); return; }
  if (refreshingInfo) return;
  const owner = session.user(), key = state.src, source = SOURCES[key], finance = FINANCE.includes(key);
  if (!owner) { setStatus('관리 계정으로 먼저 로그인해 주세요.', 'err'); return; }
@@ -67,11 +71,12 @@ const session = createSession({
   },
   onChange() {
     state.rows = {}; state.profiles = {}; state.auth = {}; state.rev.rows = null; state.rev.finance = null;
-    G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB);
+    G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB); G.forgetToken(GA.SCOPE_GA); gaGeneration++;
     renderAuthBtn(session.user());
     financeStop?.(); financeStop = null; financeReports = {}; financeGeneration++;
     cutlineLoader.cancel();
     if (state.src === CUTLINE) connectCutline();
+    else if (state.src === GA_TAB) connectGa();
     else if (!FINANCE.includes(state.src)) connect(); else connectFinance();
   },
 });
@@ -214,9 +219,11 @@ function renderTabs() {
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push(key);
   }
+  // GA 탭은 Firestore 컬렉션이 아니라 GA Data API를 읽으므로 SOURCES 밖에서 blaiva 묶음에 붙입니다.
+  groups.get(GA4.group)?.push(GA_TAB);
   groups.set("재무 총합", FINANCE);
   groups.set("Cutline", [CUTLINE]);
-  const selected = state.src === CUTLINE ? 'Cutline' : FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
+  const selected = state.src === CUTLINE ? 'Cutline' : state.src === GA_TAB ? GA4.group : FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
   $("tabs").replaceChildren(); $("subtabs").replaceChildren();
   for (const [group, keys] of groups) {
     const b = document.createElement("button");
@@ -230,7 +237,7 @@ function renderTabs() {
   $("subtabs").hidden = children.length < 2;
   for (const key of children) {
     const b = document.createElement("button");
-    b.textContent = financeLabels[key] || SOURCES[key]?.tabLabel || SOURCES[key]?.label;
+    b.textContent = (key === GA_TAB && GA4.tabLabel) || financeLabels[key] || SOURCES[key]?.tabLabel || SOURCES[key]?.label;
     b.className = key === state.src ? "on" : "";
     b.setAttribute("aria-pressed", String(key === state.src));
     b.onclick = () => switchSource(key);
@@ -239,10 +246,11 @@ function renderTabs() {
 }
 
 function switchSource(key) {
-  cutlineLoader.cancel();
+  cutlineLoader.cancel(); gaGeneration++;
   state.src = key;
   save("src", key);
   if (key === CUTLINE) save('group.Cutline', key);
+  else if (key === GA_TAB) save(`group.${GA4.group}`, key);
   else if (!FINANCE.includes(key)) save(`group.${src().group || src().label}`, key);
   else save('group.재무 총합', key);
   const rev = key === REVENUE;
@@ -250,9 +258,11 @@ function switchSource(key) {
   $("revenueView").hidden = !rev;
   $("financeView").hidden = !finance;
   $("cutlineView").hidden = key !== CUTLINE;
-  $("dataView").hidden = rev || finance || key === CUTLINE;
+  $("gaView").hidden = key !== GA_TAB;
+  $("dataView").hidden = rev || finance || key === CUTLINE || key === GA_TAB;
   financeStop?.(); financeStop = null; financeGeneration++;
   if (key === CUTLINE) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectCutline(); return; }
+  if (key === GA_TAB) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectGa(); return; }
   if (finance) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectFinance(); return; }
   if (rev) {
     connection++;
@@ -690,6 +700,34 @@ async function connectCutline() {
   setStatus(session.user() ? 'Cutline 조회 중…' : '관리 계정 로그인 필요');
   await cutlineLoader.load();
 }
-if (state.src !== CUTLINE && !FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
+// GA 탭: 관리 계정 로그인 뒤 'GA 불러오기'를 눌러 analytics.readonly 권한을 받고 GA Data API를 직접 조회합니다.
+function connectGa() {
+  renderAuthBtn(session.user());
+  const ready = !!GA4.propertyId;
+  $('gaLoad').hidden = !ready || !session.user();
+  $('gaContent').replaceChildren();
+  $('gaNote').textContent = !ready ? 'config.js 의 GA4.propertyId 가 비어 있습니다. GA 관리 > 속성 설정의 속성 ID(숫자)를 넣어 주세요.'
+    : session.user() ? `최근 ${GA4.days}일 GA 통계를 보려면 'GA 불러오기'를 눌러 Google 계정의 Analytics 읽기 권한을 허용해 주세요.` : '관리 계정 로그인 후 표시됩니다.';
+  setStatus(session.user() ? 'GA 연결 대기' : '관리 계정 로그인 필요');
+}
+async function loadGa({ prompt = '' } = {}) {
+  if (!session.user() || !GA4.propertyId) { connectGa(); return; }
+  const ticket = ++gaGeneration;
+  $('gaNote').textContent = 'GA 통계를 불러오는 중…'; setStatus('GA 조회 중…');
+  try {
+    const token = await G.getToken(GOOGLE.clientId, GA.SCOPE_GA, { prompt });
+    const data = await GA.fetchReport(token, GA4.propertyId, GA4.days);
+    if (ticket !== gaGeneration || state.src !== GA_TAB) return;
+    $('gaContent').innerHTML = GA.renderReport(data, GA4.days);
+    $('gaNote').textContent = `읽기 전용 · Google Analytics 최근 ${GA4.days}일(오늘 포함, 처리 지연 최대 하루). 체류 시간은 화면을 실제로 보고 있던 참여 시간입니다. blaiva 자체 '방문 통계' 탭과 기준이 달라 숫자가 다를 수 있습니다.`;
+    setStatus('GA 통계 불러옴', 'live');
+  } catch (error) {
+    if (ticket !== gaGeneration) return;
+    G.forgetToken(GA.SCOPE_GA);
+    $('gaNote').textContent = error.message; setStatus(error.message, 'err');
+  }
+}
+$('gaLoad').onclick = () => loadGa();
+if (state.src !== CUTLINE && state.src !== GA_TAB && !FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
 switchSource(state.src);
