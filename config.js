@@ -21,7 +21,7 @@ export const ADMOB = {
 // propertyId: GA 관리 > 속성 설정 > 속성 ID(숫자, G- 측정 ID 아님). 비어 있으면 탭에 설정 안내만 보인다.
 // 보는 사람의 Google 계정에 이 속성 '뷰어' 이상 권한이 있어야 하고, OAuth 클라이언트 프로젝트(hazel-form-493202-a1)에서
 // Google Analytics Data API 를 사용 설정해야 한다.
-export const GA4 = { propertyId: "", group: "blaiva", tabLabel: "GA 분석", days: 28 };
+export const GA4 = { propertyId: "563483953", group: "blaiva", tabLabel: "GA 분석", days: 28 };
 
 // UI gate only. Firestore rules enforce the same verified-email list server-side.
 export const ADMIN_EMAILS = [
