@@ -12,7 +12,7 @@ const link = (url, title) => {
   try { const parsed = new URL(url); if (parsed.protocol === 'https:') return `<a href="${esc(parsed.href)}" target="_blank" rel="noopener noreferrer">${esc(title)}</a>`; } catch {}
   return esc(title);
 };
-export function createUsageLoader({ owner, fetcher = fetch, publish }) {
+export function createUsageLoader({ owner, fetcher = fetch, publish, endpoint = CUTLINE_ENDPOINT, label = 'Cutline' }) {
   let generation = 0, controller;
   return {
     cancel() { generation++; controller?.abort(); },
@@ -24,13 +24,29 @@ export function createUsageLoader({ owner, fetcher = fetch, publish }) {
       try {
         const token = await user.getIdToken();
         if (!current()) return;
-        const response = await fetcher(CUTLINE_ENDPOINT, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: controller.signal });
-        if (!response.ok) throw Error(response.status === 403 ? 'Cutline 읽기 권한이 없습니다.' : response.status === 401 ? '로그인 세션을 갱신해 주세요.' : `Cutline 조회 실패 (${response.status})`);
+        const response = await fetcher(endpoint, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw Error(response.status === 403 ? `${label} 읽기 권한이 없습니다.` : response.status === 401 ? '로그인 세션을 갱신해 주세요.' : `${label} 조회 실패 (${response.status})`);
         const data = await response.json();
         if (current()) publish({ data });
       } catch (error) { if (current() && error.name !== 'AbortError') publish({ error: error.message }); }
     },
   };
+}
+export const MURDERCHAT_ENDPOINT = 'https://asia-northeast3-gamecontry-play.cloudfunctions.net/chatmurderUsageDashboard';
+
+export function renderMurderchatUsage({ rows = [] } = {}) {
+  const names = { openai: 'OpenAI', gemini: 'Gemini', claude: 'Claude' };
+  const fields = ['requests', 'successes', 'failures', 'inputTokens', 'outputTokens'];
+  const counts = row => fields.map(key => `<td>${Number(row[key] ?? 0).toLocaleString('ko-KR')}</td>`).join('');
+  const totals = Object.entries(names).map(([provider, name]) => {
+    const matching = rows.filter(row => row.provider === provider);
+    const total = Object.fromEntries(fields.map(key => [key, matching.reduce((sum, row) => sum + (row[key] ?? 0), 0)]));
+    return `<tr><td>${name}</td>${counts(total)}</tr>`;
+  });
+  const details = rows.map(row => `<tr><td>${esc(row.day)}</td><td>${esc(names[row.provider] ?? row.provider)}</td><td>${esc(row.model)}</td>${counts(row)}</tr>`);
+  const table = (title, headers, body) => `<section class="card cutline-section"><div class="card-h"><h2>${title}</h2></div><div class="tablewrap"><table><thead><tr>${[...headers, '요청', '성공', '실패', '입력 토큰', '출력 토큰'].map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div></section>`;
+  return table('공급자별 API 사용량', ['공급자'], totals)
+    + table('일별 모델 사용량', ['날짜', '공급자', '모델'], details.length ? details : ['<tr><td colspan="8">아직 기록된 요청이 없습니다.</td></tr>']);
 }
 export function renderUsage(data = {}) {
   const s = data.storage || {}, b = data.bandwidth || {}, c = data.cost || {}, p = data.prices || {}, r = data.releases || {};

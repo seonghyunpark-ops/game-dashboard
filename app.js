@@ -6,8 +6,11 @@ const { SOURCES, GOOGLE, ADMOB, ADMIN_EMAILS, GA4 } = await import(`./config.js?
 const G = await import(`./google.js?v=${encodeURIComponent(VERSION)}`);
 const { createSession } = await import(`./session.js?v=${encodeURIComponent(VERSION)}`);
 const { joinIdentities } = await import(`./identity.js?v=${encodeURIComponent(VERSION)}`);
-const { createUsageLoader, renderUsage } = await import(`./cutline.js?v=${encodeURIComponent(VERSION)}`);
+const { createUsageLoader, renderUsage, renderMurderchatUsage, MURDERCHAT_ENDPOINT } = await import(`./cutline.js?v=${encodeURIComponent(VERSION)}`);
 const CUTLINE = 'cutline_usage';
+const MURDERCHAT = 'murderchat_usage';
+const usageLabels = { [CUTLINE]: 'Cutline', [MURDERCHAT]: 'MURDERCHAT' };
+const isUsage = key => Object.hasOwn(usageLabels, key);
 const GA = await import(`./ga4.js?v=${encodeURIComponent(VERSION)}`);
 // GA 탭은 앱마다 하나씩(config.js GA4.apps 중 속성 ID가 있는 것만).
 const GA_APPS = Object.fromEntries(GA4.apps.filter((a) => a.propertyId).map((a) => [a.key, a]));
@@ -27,7 +30,7 @@ let connection = 0;
 // Reload from the server; Authentication details remain a read-only UID join.
 let refreshingInfo = false;
 $("refreshInfoBtn").onclick = async () => {
- if (state.src === 'cutline_usage') { await connectCutline(); return; }
+ if (isUsage(state.src)) { await connectUsage(); return; }
  if (state.src.endsWith('_ga')) { await loadGa(); return; }
  if (refreshingInfo) return;
  const owner = session.user(), key = state.src, source = SOURCES[key], finance = FINANCE.includes(key);
@@ -76,8 +79,8 @@ const session = createSession({
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB); G.forgetToken(GA.SCOPE_GA); gaGeneration++;
     renderAuthBtn(session.user());
     financeStop?.(); financeStop = null; financeReports = {}; financeGeneration++;
-    cutlineLoader.cancel();
-    if (state.src === CUTLINE) connectCutline();
+    Object.values(usageLoaders).forEach(loader => loader.cancel());
+    if (isUsage(state.src)) connectUsage();
     else if (isGa(state.src)) connectGa();
     else if (!FINANCE.includes(state.src)) connect(); else connectFinance();
   },
@@ -224,8 +227,8 @@ function renderTabs() {
   // GA 탭은 Firestore 컬렉션이 아니라 GA Data API를 읽으므로 SOURCES 밖에서 blaiva 묶음에 붙입니다.
   for (const app of Object.values(GA_APPS)) groups.get(app.group)?.push(app.key);
   groups.set("재무 총합", FINANCE);
-  groups.set("Cutline", [CUTLINE]);
-  const selected = state.src === CUTLINE ? 'Cutline' : isGa(state.src) ? GA_APPS[state.src].group : FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
+  for (const [key, label] of Object.entries(usageLabels)) groups.set(label, [key]);
+  const selected = isUsage(state.src) ? usageLabels[state.src] : isGa(state.src) ? GA_APPS[state.src].group : FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
   $("tabs").replaceChildren(); $("subtabs").replaceChildren();
   for (const [group, keys] of groups) {
     const b = document.createElement("button");
@@ -248,10 +251,10 @@ function renderTabs() {
 }
 
 function switchSource(key) {
-  cutlineLoader.cancel(); gaGeneration++;
+  Object.values(usageLoaders).forEach(loader => loader.cancel()); gaGeneration++;
   state.src = key;
   save("src", key);
-  if (key === CUTLINE) save('group.Cutline', key);
+  if (isUsage(key)) save(`group.${usageLabels[key]}`, key);
   else if (isGa(key)) save(`group.${GA_APPS[key].group}`, key);
   else if (!FINANCE.includes(key)) save(`group.${src().group || src().label}`, key);
   else save('group.재무 총합', key);
@@ -259,11 +262,11 @@ function switchSource(key) {
   const finance = FINANCE.includes(key) && !rev;
   $("revenueView").hidden = !rev;
   $("financeView").hidden = !finance;
-  $("cutlineView").hidden = key !== CUTLINE;
+  $("cutlineView").hidden = !isUsage(key);
   $("gaView").hidden = !isGa(key);
-  $("dataView").hidden = rev || finance || key === CUTLINE || isGa(key);
+  $("dataView").hidden = rev || finance || isUsage(key) || isGa(key);
   financeStop?.(); financeStop = null; financeGeneration++;
-  if (key === CUTLINE) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectCutline(); return; }
+  if (isUsage(key)) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectUsage(); return; }
   if (isGa(key)) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectGa(); return; }
   if (finance) { connection++; state.unsub?.(); state.unsub = null; renderTabs(); connectFinance(); return; }
   if (rev) {
@@ -689,18 +692,26 @@ $('financeCsv').onclick = () => {
   const data = [['월','항목','대상','통화','수입','지출','기준'], ...financeData().rows.map(r => [$('financeMonth').value,r.category,r.app,r.currency,r.income,r.expense,r.basis])];
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob(['\uFEFF' + data.map(r=>r.map(q).join(',')).join('\n')], {type:'text/csv'})); a.href=url; a.download=`finance_${$('financeMonth').value}.csv`; a.click(); URL.revokeObjectURL(url);
 };
-const cutlineLoader = createUsageLoader({ owner: () => session.user(), publish: ({data,error}) => {
-  if (state.src !== CUTLINE) return;
-  $('cutlineContent').innerHTML = data ? renderUsage(data) : '';
-  $('cutlineNote').textContent = error || '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.';
-  setStatus(error || 'Cutline 집계 불러옴', error ? 'err' : 'live');
-} });
-async function connectCutline() {
+const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, label]) => [
+  key, createUsageLoader({ owner: () => session.user(), label,
+    endpoint: key === MURDERCHAT ? MURDERCHAT_ENDPOINT : undefined,
+    publish: ({data,error}) => {
+      if (state.src !== key) return;
+      $('cutlineContent').innerHTML = data ? (key === MURDERCHAT ? renderMurderchatUsage(data) : renderUsage(data)) : '';
+      $('cutlineNote').textContent = error || (key === MURDERCHAT
+        ? '최근 30일 · 한국 시간 · MURDERCHAT 서버의 API 요청과 입력·출력 토큰을 집계합니다.'
+        : '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.');
+      setStatus(error || `${label} 집계 불러옴`, error ? 'err' : 'live');
+    }
+  })
+]));
+async function connectUsage() {
+  const key = state.src, label = usageLabels[key];
   renderAuthBtn(session.user());
   $('cutlineContent').replaceChildren();
-  $('cutlineNote').textContent = session.user() ? 'Cutline 사용량을 불러오는 중…' : '관리 계정 로그인 후 표시됩니다.';
-  setStatus(session.user() ? 'Cutline 조회 중…' : '관리 계정 로그인 필요');
-  await cutlineLoader.load();
+  $('cutlineNote').textContent = session.user() ? `${label} 사용량을 불러오는 중…` : '관리 계정 로그인 후 표시됩니다.';
+  setStatus(session.user() ? `${label} 조회 중…` : '관리 계정 로그인 필요');
+  await usageLoaders[key].load();
 }
 // GA 탭: 관리 계정 로그인 뒤 'GA 불러오기'를 눌러 analytics.readonly 권한을 받고 GA Data API를 직접 조회합니다.
 function connectGa() {
@@ -729,6 +740,6 @@ async function loadGa({ prompt = '' } = {}) {
   }
 }
 $('gaLoad').onclick = () => loadGa();
-if (state.src !== CUTLINE && !isGa(state.src) && !FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
+if (!isUsage(state.src) && !isGa(state.src) && !FINANCE.includes(state.src) && !SOURCES[state.src]) state.src = Object.keys(SOURCES)[0];
 $("filters").hidden = load("filtersOpen") !== "1";
 switchSource(state.src);

@@ -3,7 +3,7 @@ const source=await fs.readFile(new URL('./app.js',import.meta.url),'utf8');
 const code=source.slice(source.indexOf('// Reload from the server;'),source.indexOf('const session = createSession({'));
 function setup(read=async()=>({docs:[{id:'u',data:()=>({score:4})}]}),join=async()=>{}){
  let user={uid:'admin'};const button={},statuses=[],state={src:'game',rows:{},profiles:{}};
- const scope={$:()=>button,session:{user:()=>user,ensure:async()=>({db:{}})},state,SOURCES:{game:{collection:'users',firebase:{},columns:[],authJoin:true}},FINANCE:[],getDocsFromServer:read,collection:(_,c)=>c,joinAuth:join,setStatus:(s)=>statuses.push(s),setupControls(){},render(){},inferColumns(){}};
+ const scope={$:()=>button,session:{user:()=>user,ensure:async()=>({db:{}})},state,isUsage:()=>false,SOURCES:{game:{collection:'users',firebase:{},columns:[],authJoin:true}},FINANCE:[],getDocsFromServer:read,collection:(_,c)=>c,joinAuth:join,setStatus:(s)=>statuses.push(s),setupControls(){},render(){},inferColumns(){}};
  vm.runInNewContext(code,scope);return{scope,state,button,statuses,logout(){user=null;}};
 }
 test('refresh reads server and automatically joins login information',async()=>{let joined=0;const t=setup(undefined,async()=>{joined++;});await t.button.onclick();assert.equal(joined,1);assert.equal(t.state.rows.game[0].score,4);assert.match(t.statuses.at(-1),/로그인 정보 포함/);assert.equal(t.button.disabled,false);});
