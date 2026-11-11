@@ -34,3 +34,13 @@ test("권한 없음은 알아들을 말로", async () => {
   const fetcher = async () => ({ ok: false, status: 403, json: async () => ({}) });
   await assert.rejects(fetchReport("t", "123", 28, fetcher), /보기 권한/);
 });
+test("게임 앱은 이벤트 순위와 화면 이름으로", () => {
+  const r = buildRequests(28, { web: false });
+  assert.equal(r[3].dimensionFilter, undefined);
+  assert.equal(r[4].dimensions[0].name, "unifiedScreenName");
+  const app = [sample[0], sample[1], sample[2], rep(["eventName"], ["totalUsers", "eventCount"], [[["ss_stage_clear"], [50, 300]]]), rep(["unifiedScreenName"], ["screenPageViews", "activeUsers", "userEngagementDuration"], [[["Game"], [900, 80, 7200]]])];
+  const d = summarize(app, { web: false });
+  assert.equal(d.events[0].name, "ss_stage_clear"); assert.equal(d.pages[0].path, "Game");
+  const html = renderReport(d);
+  assert.ok(html.includes("많이 일어난 이벤트")); assert.ok(!html.includes("몇 단계까지"));
+});

@@ -17,11 +17,22 @@ export const ADMOB = {
   currency: "KRW",
 };
 
-// Google Analytics(GA4) 탭 — blaiva 웹의 체류시간·유입 경로·탐색 단계(ga4.js).
-// propertyId: GA 관리 > 속성 설정 > 속성 ID(숫자, G- 측정 ID 아님). 비어 있으면 탭에 설정 안내만 보인다.
+// Google Analytics(GA4) 탭 — 앱별 체류시간·유입 경로, blaiva 웹은 탐색 단계까지(ga4.js).
+// propertyId: GA 관리 > 속성 설정 > 속성 ID(숫자, G- 측정 ID 아님).
 // 보는 사람의 Google 계정에 이 속성 '뷰어' 이상 권한이 있어야 하고, OAuth 클라이언트 프로젝트(hazel-form-493202-a1)에서
 // Google Analytics Data API 를 사용 설정해야 한다.
-export const GA4 = { propertyId: "563483953", group: "blaiva", tabLabel: "GA 분석", days: 28 };
+export const GA4 = {
+  days: 28, tabLabel: "GA 분석",
+  // 앱별 GA 탭. propertyId 가 채워진 앱만 탭이 보인다. web:true 는 blaiva 웹 전용 표(탐색 단계·행동).
+  // 게임 앱 속성 ID: Firebase 콘솔 > 프로젝트 설정 > 통합 > Google Analytics 또는 GA 관리 > 속성 설정.
+  apps: [
+    { key: "blaiva_ga", group: "blaiva", propertyId: "563483953", web: true },
+    { key: "seongsu_ga", group: "성수역", propertyId: "" },
+    { key: "egypt_ga", group: "이집트 디펜스", propertyId: "" },
+    { key: "lumiclass_ga", group: "캠퍼스마루", propertyId: "" },
+    { key: "aicena_ga", group: "AICENA", propertyId: "" },
+  ],
+};
 
 // UI gate only. Firestore rules enforce the same verified-email list server-side.
 export const ADMIN_EMAILS = [
