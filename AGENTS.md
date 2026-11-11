@@ -60,7 +60,7 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 - 저장 용량·객체 수, 이번 달 전송량·월말 예측, 서비스별 추정 비용, 공식 요금 기준·확인일, Firebase 최신 업데이트를 표시한다. 수집 실패와 미수집은 0으로 표시하지 않는다. 추정 비용은 최종 청구액이 아니다.
 - `cutline.test.mjs`는 미수집/0 구분, 로그아웃·탭 이동 후 늦은 응답 폐기, 토큰 처리, 링크 이스케이프, 관리자 목록 일치를 검사한다. 전체 검사: `node --test *.test.mjs`.
 - 운영 규칙 변경 시 반드시 현재 게시본을 읽어서 대시보드 읽기 이메일 조건만 변경한다. 기존 게임의 쓰기·소유자·custom claim 권한은 보존한다.
-## blaiva GA 분석 탭 (2026-11-10)
-- `ga4.js` — `SOURCES`에 넣지 않는 별도 탭(blaiva 묶음의 'GA 분석'). 관리 계정 로그인 뒤 'GA 불러오기'로 `analytics.readonly` OAuth 토큰(메모리)을 받아 GA Data API `batchRunReports`를 직접 부른다. 서버·비밀값 없음.
-- 설정: `config.js`의 `GA4.propertyId`(숫자 속성 ID). 보는 Google 계정에 GA 속성 뷰어 권한, OAuth 클라이언트 프로젝트 `hazel-form-493202-a1`에서 Google Analytics Data API 사용 설정, OAuth 동의 화면에 `analytics.readonly` 범위 추가가 필요하다.
+## GA 분석 탭 (2026-11-10, 앱별 확장 11-11)
+- `ga4.js` — `SOURCES`에 넣지 않는 별도 탭. `config.js`의 `GA4.apps`에서 `propertyId`가 있는 앱마다 그 앱 묶음에 'GA 분석' 탭이 생긴다. `web:true`(blaiva)는 탐색 단계·행동 표, 게임 앱은 많이 일어난 이벤트·화면 이름 표. 관리 계정 로그인 뒤 'GA 불러오기'로 `analytics.readonly` OAuth 토큰(메모리)을 받아 GA Data API `batchRunReports`를 직접 부른다. 서버·비밀값 없음.
+- 설정: `GA4.apps[].propertyId`(숫자 속성 ID). Data API는 OAuth 클라이언트 프로젝트에서 한 번만 켜면 모든 앱 속성에 쓰인다. 보는 Google 계정에 GA 속성 뷰어 권한, OAuth 클라이언트 프로젝트 `hazel-form-493202-a1`에서 Google Analytics Data API 사용 설정, OAuth 동의 화면에 `analytics.readonly` 범위 추가가 필요하다.
 - 표시: 방문자·세션·1인 평균 참여 시간·방문당 화면 수, 탐색 단계(depth_2/3/5/10 이벤트, blaiva `web/src/traffic-policy.mjs`와 같은 이름), 재생·찜, 유입 채널·출처, 많이 본 화면, 날짜별. 검사: `ga4.test.mjs`.
