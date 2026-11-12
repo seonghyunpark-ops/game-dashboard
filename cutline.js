@@ -34,6 +34,12 @@ export function createUsageLoader({ owner, fetcher = fetch, publish, endpoint = 
 }
 export const MURDERCHAT_ENDPOINT = 'https://asia-northeast3-gamecontry-play.cloudfunctions.net/chatmurderUsageDashboard';
 
+const murderchatRates = new Map([
+  ['gpt-6-luna', { input: 0.10, output: 0.50, url: 'https://developers.openai.com/api/docs/models/gpt-6-luna' }],
+  ['gemini-3.1-flash-lite', { input: 0.25, output: 1.50, url: 'https://ai.google.dev/gemini-api/docs/pricing/#gemini-3.1-flash-lite' }],
+  ['claude-haiku-5-5', { input: 0.10, output: 0.50, url: 'https://platform.claude.com/docs/en/models/haiku-5-5/overview' }],
+]);
+
 export function renderMurderchatUsage({ rows = [] } = {}) {
   const names = { openai: 'OpenAI', gemini: 'Gemini', claude: 'Claude' };
   const fields = ['requests', 'successes', 'failures', 'inputTokens', 'outputTokens'];
@@ -43,10 +49,19 @@ export function renderMurderchatUsage({ rows = [] } = {}) {
     const total = Object.fromEntries(fields.map(key => [key, matching.reduce((sum, row) => sum + (row[key] ?? 0), 0)]));
     return `<tr><td>${name}</td>${counts(total)}</tr>`;
   });
-  const details = rows.map(row => `<tr><td>${esc(row.day)}</td><td>${esc(names[row.provider] ?? row.provider)}</td><td>${esc(row.model)}</td>${counts(row)}</tr>`);
-  const table = (title, headers, body) => `<section class="card cutline-section"><div class="card-h"><h2>${title}</h2></div><div class="tablewrap"><table><thead><tr>${[...headers, '요청', '성공', '실패', '입력 토큰', '출력 토큰'].map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div></section>`;
-  return table('공급자별 API 사용량', ['공급자'], totals)
-    + table('일별 모델 사용량', ['날짜', '공급자', '모델'], details.length ? details : ['<tr><td colspan="8">아직 기록된 요청이 없습니다.</td></tr>']);
+  const details = rows.map(row => {
+    const rate = murderchatRates.get(row.model);
+    const estimate = rate && (row.inputTokens * rate.input + row.outputTokens * rate.output) / 1e6;
+    return `<tr><td>${esc(row.day)}</td><td>${esc(names[row.provider] ?? row.provider)}</td><td>${esc(row.model)}</td>${counts(row)}<td>${known(estimate) ? '$' + estimate.toFixed(6) : '미산정'}</td></tr>`;
+  });
+  const prices = Array.from(murderchatRates, ([model, rate]) =>
+    `<tr><td>${link(rate.url, model)}</td><td>$${rate.input.toFixed(2)}</td><td>$${rate.output.toFixed(2)}</td></tr>`);
+  const usageHeaders = ['요청', '성공', '실패', '입력 토큰', '출력 토큰'];
+  const table = (title, headers, body, note = '') => `<section class="card cutline-section"><div class="card-h"><h2>${title}</h2></div>${note ? `<div class="note cutline-notice">${note}</div>` : ''}<div class="tablewrap"><table><thead><tr>${headers.map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div></section>`;
+  return table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
+    + table('일별 모델 사용량', ['날짜', '공급자', '모델', ...usageHeaders, '예상 비용'], details.length ? details : ['<tr><td colspan="9">아직 기록된 요청이 없습니다.</td></tr>'])
+    + table('모델별 API 단가', ['모델', '입력', '출력'], prices,
+      '2026년 11월 12일 기준 · 표준 유료 텍스트 토큰 100만 개당 USD. 예상 비용은 기록된 토큰에 이 단가를 적용한 값이며, 캐시 할인과 무료 사용량은 반영하지 않습니다.');
 }
 export function renderUsage(data = {}) {
   const s = data.storage || {}, b = data.bandwidth || {}, c = data.cost || {}, p = data.prices || {}, r = data.releases || {};
