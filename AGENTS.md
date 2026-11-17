@@ -67,3 +67,8 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 ## MURDERCHAT 쿠폰 내역 (2026-11-17)
 - MURDERCHAT 탭은 사용량과 같은 응답(`chatmurderUsageDashboard`)의 `coupons`(합계 `totals`, 발급 내역 `coupons`, 사용 내역 `uses`)로 쿠폰 요약·발급 내역·사용 내역 표를 그린다(`cutline.js`의 `renderMurderchatUsage`). 읽기 전용이다. 쿠폰 발급은 MURDERCHAT 편집기에서 한다.
 - 서버가 `coupons`를 보내지 않으면(쿠폰 기능 배포 전) 안내 문구만 보여 준다. 계정은 서버가 가린 8글자 표시값으로만 온다.
+## MURDERCHAT 방 플레이 기록·계정별 내역 (2026-11-17)
+- 같은 응답(`chatmurderUsageDashboard`)의 `plays`(방 플레이 기록: 시작한 때, 방 코드, 작품, 방장·참가자 계정, 시작할 때 쓴 코인·이용권, AI 요청·토큰·추정 비용)와 `accounts`(계정별 보유·구매·쿠폰 코인, 쓴 코인, 소장 작품, AI 이용권 구매·사용·보유)를 표로 그린다(`cutline.js`의 `renderMurderchatUsage`). 읽기 전용이다.
+- 계정별 표의 「소장 작품」 버튼은 `<dialog class="mc-dialog">` 팝업을 연다. 여는 처리는 `app.js`의 `cutlineContent` 클릭 처리(`data-open-dialog`)에 있다.
+- 계정은 서버가 가운데를 가린 이메일과 8글자 표시값으로만 보낸다. 원래 식별값이나 전체 이메일을 화면에 내보내지 않는다.
+- 서버가 `plays`·`accounts`를 보내지 않으면(배포 전) 안내 문구만 보여 준다. 배포 전에 한 방은 계정 기록이 없어 AI 사용량만 나온다.

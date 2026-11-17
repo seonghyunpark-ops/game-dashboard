@@ -40,7 +40,7 @@ const murderchatRates = new Map([
   ['claude-haiku-5-5', { input: 0.10, output: 0.50, url: 'https://platform.claude.com/docs/en/models/haiku-5-5/overview' }],
 ]);
 
-export function renderMurderchatUsage({ rows = [], coupons = null } = {}) {
+export function renderMurderchatUsage({ rows = [], coupons = null, plays = null, accounts = null } = {}) {
   const names = { openai: 'OpenAI', gemini: 'Gemini', claude: 'Claude' };
   const fields = ['requests', 'successes', 'failures', 'inputTokens', 'outputTokens'];
   const counts = row => fields.map(key => `<td>${Number(row[key] ?? 0).toLocaleString('ko-KR')}</td>`).join('');
@@ -74,7 +74,29 @@ export function renderMurderchatUsage({ rows = [], coupons = null } = {}) {
       + table('쿠폰 사용 내역', ['사용한 때', '코드', '받은 것', '계정 표시값'],
         (coupons.uses || []).length ? coupons.uses.map(u => `<tr><td>${esc(when(u.at))}</td><td>${esc(u.code)}</td><td>${esc(gives(u))}</td><td>${esc(u.account)}</td></tr>`) : ['<tr><td colspan="4">아직 사용된 쿠폰이 없습니다.</td></tr>'],
         '계정 표시값은 계정 식별값을 알아볼 수 없게 바꾼 앞 8글자입니다. 같은 계정은 같은 값으로 보입니다.');
-  return couponPart + table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
+  // 방 플레이 기록: 어떤 계정이 어떤 방에서 어떤 작품을 했고 AI(API)를 얼마나 썼는지.
+  const usd = value => known(value) ? '$' + value.toFixed(4) : '미산정';
+  const who = person => person ? `${esc(person.label)} <small class="muted">${esc(person.account ?? '')}</small>` : '기록 없음';
+  const orDash = value => value == null ? '—' : esc(num(value));
+  const playRows = (plays?.rows || []).map(p => `<tr><td>${p.startedAt ? esc(when(p.startedAt)) : '기록 없음'}</td><td>${esc(p.roomCode || '—')}</td><td>${esc(p.storyTitle || '—')}</td><td>${who(p.host)}</td><td>${p.players ? p.players.map(m => `${esc(m.name)} (${esc(m.label)})`).join('<br>') : '기록 없음'}</td><td>${p.humans == null ? '—' : `사람 ${esc(num(p.humans))} · AI ${esc(num(p.bots))}`}</td><td>${p.coinsUsed == null ? '—' : `코인 ${esc(num(p.coinsUsed))} · 이용권 ${esc(num(p.passesUsed))} · 참여권 ${esc(num(p.vouchersUsed))}`}</td><td>${p.ai ? esc(num(p.ai.attempts)) : '0'}</td><td>${p.ai ? `${esc(num(p.ai.inputTokens))} / ${esc(num(p.ai.outputTokens))}` : '0 / 0'}</td><td>${p.ai ? usd(p.ai.costUsd) + (p.ai.costComplete ? '' : ' 이상') : '$0.0000'}</td></tr>`);
+  const playPart = !plays
+    ? table('방 플레이 기록', ['안내'], ['<tr><td>방 플레이 기록을 불러오지 못했습니다. MURDERCHAT 서버가 이 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
+    : table('방 플레이 기록', ['시작한 때', '방 코드', '작품', '방장 계정', '참가자', '자리', '시작할 때 쓴 것', 'AI 요청', '입력 / 출력 토큰', 'AI 비용'],
+      playRows.length ? playRows : ['<tr><td colspan="10">아직 기록된 방이 없습니다.</td></tr>'],
+      `최근 ${esc(num(plays.limit))}개 방입니다. 계정은 가운데를 가린 이메일과 8글자 표시값으로 보입니다. 이 기능을 배포하기 전에 한 방은 계정 기록이 없어 AI 사용량만 나옵니다. AI 비용은 기록된 토큰으로 계산한 추정값이며, "이상"은 단가를 모르는 요청이 섞여 있다는 뜻입니다.`);
+  // 계정별 내역: 코인 구매, 소장 작품(팝업), AI 이용권 구매와 사용.
+  const storyDialog = (a, i) => `<dialog class="mc-dialog" id="mc-account-${i}" aria-labelledby="mc-account-title-${i}"><div class="card-h"><h2 id="mc-account-title-${i}">${esc(a.label)} <small class="muted">${esc(a.account)}</small></h2><form method="dialog"><button class="btn">닫기</button></form></div>
+    <div class="kpis">${kpi(a.coins, '보유 코인')}${kpi(a.coinsBought, '돈으로 산 코인')}${kpi(a.couponCoins, '쿠폰으로 받은 코인')}${kpi(a.coinsSpent, '쓴 코인')}${kpi(a.passesHeld, '보유 AI 이용권')}${kpi(a.passesBought, '산 AI 이용권')}${kpi(a.couponPasses, '쿠폰으로 받은 이용권')}${kpi(a.passesUsed, '쓴 AI 이용권')}</div>
+    <p class="note cutline-notice">쓴 코인 ${esc(num(a.coinsSpent))} = 작품 ${esc(num(a.coinsOnStories))} + AI 이용권 구매 ${esc(num(a.coinsOnPasses))} + 방 시작 ${esc(num(a.coinsOnRooms))} · 코인 결제 ${esc(num(a.purchases))}번 · 이용권을 낸 방 ${esc(num(a.rooms))}개 · 쓴 작품 참여권 ${esc(num(a.vouchersUsed))}장</p>
+    <h3>소장한 작품 ${esc(num((a.stories || []).length))}편</h3>
+    <div class="tablewrap"><table><thead><tr><th scope="col">작품</th><th scope="col">산 값</th><th scope="col">산 때</th><th scope="col">남은 참여권</th></tr></thead><tbody>${(a.stories || []).length ? a.stories.map(st => `<tr><td>${esc(st.title)}</td><td>${st.priceCoins == null ? '기록 없음' : esc(num(st.priceCoins)) + '코인'}</td><td>${st.purchasedAt ? esc(when(st.purchasedAt)) : '—'}</td><td>${esc(num(st.vouchersLeft))}장</td></tr>`).join('') : '<tr><td colspan="4">소장한 작품이 없습니다.</td></tr>'}</tbody></table></div></dialog>`;
+  const accountRows = (accounts?.rows || []).map((a, i) => `<tr><td>${who(a)}</td><td>${esc(a.provider || '—')}</td><td>${esc(num(a.coins))}</td><td>${esc(num(a.coinsBought))}</td><td>${esc(num(a.couponCoins))}</td><td>${esc(num(a.coinsSpent))}</td><td><button type="button" class="btn" data-open-dialog="mc-account-${i}">${esc(num((a.stories || []).length))}편 보기</button>${storyDialog(a, i)}</td><td>${esc(num(a.passesBought))} + 쿠폰 ${esc(num(a.couponPasses))}</td><td>${esc(num(a.passesUsed))}</td><td>${esc(num(a.passesHeld))}</td><td>${a.lastAt ? esc(when(a.lastAt)) : '—'}</td></tr>`);
+  const accountPart = !accounts
+    ? table('계정별 코인·작품·AI 이용권', ['안내'], ['<tr><td>계정별 내역을 불러오지 못했습니다. MURDERCHAT 서버가 이 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
+    : table('계정별 코인·작품·AI 이용권', ['계정', '로그인', '보유 코인', '돈으로 산 코인', '쿠폰 코인', '쓴 코인', '소장 작품', '산 AI 이용권', '쓴 AI 이용권', '보유 AI 이용권', '마지막 활동'],
+      accountRows.length ? accountRows : ['<tr><td colspan="11">아직 코인이나 쿠폰을 쓴 계정이 없습니다.</td></tr>'],
+      `코인 장부의 최근 ${esc(num(accounts.ledgerLimit))}줄을 계정별로 더한 값입니다.${accounts.truncated ? ' 장부가 이보다 길어 오래된 내역은 빠져 있습니다.' : ''} 「소장 작품」의 버튼을 누르면 그 계정이 산 작품 목록과 자세한 내역이 팝업으로 뜹니다. 코인이나 쿠폰을 한 번도 쓰지 않은 계정은 나오지 않습니다.`);
+  return playPart + accountPart + couponPart + table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
     + table('일별 모델 사용량', ['날짜', '공급자', '모델', ...usageHeaders, '예상 비용'], details.length ? details : ['<tr><td colspan="9">아직 기록된 요청이 없습니다.</td></tr>'])
     + table('모델별 API 단가', ['모델', '입력', '출력'], prices,
       '2026년 11월 12일 기준 · 표준 유료 텍스트 토큰 100만 개당 USD. 예상 비용은 기록된 토큰에 이 단가를 적용한 값이며, 캐시 할인과 무료 사용량은 반영하지 않습니다.');

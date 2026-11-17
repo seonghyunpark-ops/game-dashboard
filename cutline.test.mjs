@@ -79,3 +79,28 @@ test('MURDERCHAT 쿠폰 발급·사용 내역을 표로 보여 주고 값은 이
   const empty = renderMurderchatUsage({ rows: [], coupons: { limit: 200, totals: {}, coupons: [], uses: [] } });
   assert.match(empty, /아직 발급한 쿠폰이 없습니다/); assert.match(empty, /아직 사용된 쿠폰이 없습니다/);
 });
+
+test('MURDERCHAT 방 플레이 기록과 계정별 내역을 표와 팝업으로 보여 준다', async () => {
+  const { renderMurderchatUsage } = await import('./cutline.js');
+  const without = renderMurderchatUsage({ rows: [] });
+  assert.match(without, /방 플레이 기록을 불러오지 못했습니다/); assert.match(without, /계정별 내역을 불러오지 못했습니다/);
+  const html = renderMurderchatUsage({ rows: [],
+    plays: { limit: 200, rows: [
+      { startedAt: '2026-11-17T01:00:00Z', roomCode: 'ABC234', storyTitle: '<i>작품</i>', host: { account: '3fa9c1d2', label: 'ho***@example.com', provider: 'Google' },
+        players: [{ name: '하나', account: '3fa9c1d2', label: 'ho***@example.com' }, { name: '<b>둘</b>', account: null, label: '로그인 안 함' }],
+        humans: 2, bots: 2, coinsUsed: 14, passesUsed: 1, vouchersUsed: 0, ai: { attempts: 12, inputTokens: 1000, outputTokens: 200, costUsd: 0.0123, costComplete: true } },
+      { startedAt: null, roomCode: 'OLD234', storyTitle: '옛 작품', host: null, players: null, humans: null, bots: null, coinsUsed: null, passesUsed: null, vouchersUsed: null, ai: { attempts: 3, inputTokens: 10, outputTokens: 5, costUsd: 0, costComplete: false } },
+    ] },
+    accounts: { ledgerLimit: 5000, truncated: false, rows: [
+      { account: '3fa9c1d2', label: 'ho***@example.com', provider: 'Google', coins: 21, coinsBought: 55, purchases: 1, couponCoins: 10, couponPasses: 2, coinsSpent: 44, coinsOnStories: 12, coinsOnPasses: 25, coinsOnRooms: 7,
+        passesBought: 5, passesUsed: 3, passesHeld: 4, vouchersUsed: 1, rooms: 2, lastAt: '2026-11-17T02:00:00Z',
+        stories: [{ id: 's', title: '<u>산 작품</u>', priceCoins: 12, purchasedAt: '2026-11-17T00:02:00Z', vouchersLeft: 6 }] },
+    ] } });
+  assert.match(html, /방 플레이 기록/); assert.match(html, /ABC234/); assert.match(html, /사람 2 · AI 2/); assert.match(html, /코인 14 · 이용권 1 · 참여권 0/);
+  assert.match(html, /1,000 \/ 200/); assert.match(html, /\$0\.0123/); assert.match(html, /\$0\.0000 이상/); assert.match(html, /OLD234/);
+  assert.ok(html.includes('&lt;i&gt;작품&lt;/i&gt;') && !html.includes('<i>작품</i>') && !html.includes('<b>둘</b>') && !html.includes('<u>산 작품</u>'));
+  assert.match(html, /data-open-dialog="mc-account-0"/); assert.match(html, /<dialog class="mc-dialog" id="mc-account-0"/);
+  assert.match(html, /1편 보기/); assert.match(html, /12코인/); assert.match(html, /돈으로 산 코인/); assert.match(html, /5 \+ 쿠폰 2/);
+  const empty = renderMurderchatUsage({ rows: [], plays: { limit: 200, rows: [] }, accounts: { ledgerLimit: 5000, rows: [] } });
+  assert.match(empty, /아직 기록된 방이 없습니다/); assert.match(empty, /아직 코인이나 쿠폰을 쓴 계정이 없습니다/);
+});
