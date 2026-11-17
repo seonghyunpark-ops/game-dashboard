@@ -59,3 +59,23 @@ test('diagnostic traffic, full cost exclusions, rounded days and components are 
   assert.doesNotMatch(html, /28\.259/);
   for (const text of ['진단용','내부·중복 트래픽','청구 대역폭이 아닙니다','컴퓨팅','Firestore','작업 요금','세금','Cloud Run','1 KiB','source coverage','source disclaimer']) assert.ok(html.includes(text), text);
 });
+
+test('MURDERCHAT 쿠폰 발급·사용 내역을 표로 보여 주고 값은 이스케이프한다', async () => {
+  const { renderMurderchatUsage } = await import('./cutline.js');
+  const without = renderMurderchatUsage({ rows: [] });
+  assert.match(without, /쿠폰 기능을 배포한 뒤에 표시됩니다/);
+  const html = renderMurderchatUsage({ rows: [], coupons: {
+    limit: 200, totals: { issued: 2, active: 1, redeemed: 3, coinsGiven: 60, passesGiven: 2 },
+    coupons: [
+      { code: 'OPEN2026', coins: 30, passes: 2, mode: 'each', maxUses: null, used: 2, expiresAt: null, note: '<b>오픈</b>', createdAt: '2026-11-17T00:00:00Z', createdBy: 'admin@example.com', disabled: false },
+      { code: 'ONE1', coins: 0, passes: 1, mode: 'single', maxUses: 1, used: 1, expiresAt: null, note: '', createdAt: '2026-11-17T00:00:00Z', createdBy: 'admin@example.com', disabled: false },
+    ],
+    uses: [{ code: 'OPEN2026', coins: 30, passes: 2, account: '3fa9c1d2', at: '2026-11-17T01:00:00Z' }],
+  } });
+  assert.match(html, /쿠폰 발급 내역/); assert.match(html, /쿠폰 사용 내역/);
+  assert.match(html, /코인 30 \+ AI 이용권 2/); assert.match(html, /2 \/ 제한 없음/);
+  assert.match(html, /한 사람만/); assert.match(html, /모두 사용됨/); assert.match(html, /3fa9c1d2/);
+  assert.ok(html.includes('&lt;b&gt;오픈&lt;/b&gt;') && !html.includes('<b>오픈</b>'));
+  const empty = renderMurderchatUsage({ rows: [], coupons: { limit: 200, totals: {}, coupons: [], uses: [] } });
+  assert.match(empty, /아직 발급한 쿠폰이 없습니다/); assert.match(empty, /아직 사용된 쿠폰이 없습니다/);
+});

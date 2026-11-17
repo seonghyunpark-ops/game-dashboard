@@ -40,7 +40,7 @@ const murderchatRates = new Map([
   ['claude-haiku-5-5', { input: 0.10, output: 0.50, url: 'https://platform.claude.com/docs/en/models/haiku-5-5/overview' }],
 ]);
 
-export function renderMurderchatUsage({ rows = [] } = {}) {
+export function renderMurderchatUsage({ rows = [], coupons = null } = {}) {
   const names = { openai: 'OpenAI', gemini: 'Gemini', claude: 'Claude' };
   const fields = ['requests', 'successes', 'failures', 'inputTokens', 'outputTokens'];
   const counts = row => fields.map(key => `<td>${Number(row[key] ?? 0).toLocaleString('ko-KR')}</td>`).join('');
@@ -58,7 +58,23 @@ export function renderMurderchatUsage({ rows = [] } = {}) {
     `<tr><td>${link(rate.url, model)}</td><td>$${rate.input.toFixed(2)}</td><td>$${rate.output.toFixed(2)}</td></tr>`);
   const usageHeaders = ['요청', '성공', '실패', '입력 토큰', '출력 토큰'];
   const table = (title, headers, body, note = '') => `<section class="card cutline-section"><div class="card-h"><h2>${title}</h2></div>${note ? `<div class="note cutline-notice">${note}</div>` : ''}<div class="tablewrap"><table><thead><tr>${headers.map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div></section>`;
-  return table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
+  // 쿠폰 발급·사용 내역. 서버가 아직 쿠폰 내역을 보내지 않으면(이전 버전) 안내만 보여 준다.
+  const num = value => Number(value ?? 0).toLocaleString('ko-KR');
+  const gives = item => [item.coins ? `코인 ${num(item.coins)}` : '', item.passes ? `AI 이용권 ${num(item.passes)}` : ''].filter(Boolean).join(' + ') || '—';
+  const couponState = coupon => coupon.disabled ? '중지됨' : coupon.expiresAt && Date.now() >= Date.parse(coupon.expiresAt) ? '기간 만료' : coupon.maxUses != null && coupon.used >= coupon.maxUses ? '모두 사용됨' : '사용 가능';
+  const when = value => { const d = new Date(value); return Number.isFinite(d.getTime()) ? d.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; };
+  const kpi = (value, label) => `<div class="kpi"><b>${esc(num(value))}</b><small>${esc(label)}</small></div>`;
+  const t = coupons?.totals || {};
+  const couponPart = !coupons
+    ? table('쿠폰 발급·사용 내역', ['안내'], ['<tr><td>쿠폰 내역을 불러오지 못했습니다. MURDERCHAT 서버가 쿠폰 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
+    : `<section class="card cutline-section"><div class="card-h"><h2>쿠폰 요약</h2><span class="muted">최근 ${esc(num(coupons.limit))}건 기준</span></div><div class="kpis">${kpi(t.issued, '발급한 쿠폰')}${kpi(t.active, '지금 쓸 수 있는 쿠폰')}${kpi(t.redeemed, '사용된 횟수')}${kpi(t.coinsGiven, '나간 코인')}${kpi(t.passesGiven, '나간 AI 이용권')}</div></section>`
+      + table('쿠폰 발급 내역', ['코드', '주는 것', '방식', '사용 / 수량', '상태', '기한', '메모', '만든 때', '만든 사람'],
+        (coupons.coupons || []).length ? coupons.coupons.map(c => `<tr><td>${esc(c.code)}</td><td>${esc(gives(c))}</td><td>${c.mode === 'single' ? '한 사람만' : '계정마다 1회'}</td><td>${esc(num(c.used))} / ${c.maxUses == null ? '제한 없음' : esc(num(c.maxUses))}</td><td>${couponState(c)}</td><td>${c.expiresAt ? esc(when(c.expiresAt)) : '없음'}</td><td>${esc(c.note || '—')}</td><td>${esc(when(c.createdAt))}</td><td>${esc(c.createdBy || '—')}</td></tr>`) : ['<tr><td colspan="9">아직 발급한 쿠폰이 없습니다.</td></tr>'],
+        '쿠폰은 MURDERCHAT 편집기의 「쿠폰」 버튼에서 발급합니다. 이 화면은 읽기 전용입니다.')
+      + table('쿠폰 사용 내역', ['사용한 때', '코드', '받은 것', '계정 표시값'],
+        (coupons.uses || []).length ? coupons.uses.map(u => `<tr><td>${esc(when(u.at))}</td><td>${esc(u.code)}</td><td>${esc(gives(u))}</td><td>${esc(u.account)}</td></tr>`) : ['<tr><td colspan="4">아직 사용된 쿠폰이 없습니다.</td></tr>'],
+        '계정 표시값은 계정 식별값을 알아볼 수 없게 바꾼 앞 8글자입니다. 같은 계정은 같은 값으로 보입니다.');
+  return couponPart + table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
     + table('일별 모델 사용량', ['날짜', '공급자', '모델', ...usageHeaders, '예상 비용'], details.length ? details : ['<tr><td colspan="9">아직 기록된 요청이 없습니다.</td></tr>'])
     + table('모델별 API 단가', ['모델', '입력', '출력'], prices,
       '2026년 11월 12일 기준 · 표준 유료 텍스트 토큰 100만 개당 USD. 예상 비용은 기록된 토큰에 이 단가를 적용한 값이며, 캐시 할인과 무료 사용량은 반영하지 않습니다.');
