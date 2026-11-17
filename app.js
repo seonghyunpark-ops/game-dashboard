@@ -692,6 +692,12 @@ $('financeCsv').onclick = () => {
   const data = [['월','항목','대상','통화','수입','지출','기준'], ...financeData().rows.map(r => [$('financeMonth').value,r.category,r.app,r.currency,r.income,r.expense,r.basis])];
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob(['\uFEFF' + data.map(r=>r.map(q).join(',')).join('\n')], {type:'text/csv'})); a.href=url; a.download=`finance_${$('financeMonth').value}.csv`; a.click(); URL.revokeObjectURL(url);
 };
+// 사용량 화면 안의 팝업(계정별 소장 작품 등)을 연다. 바깥 어두운 곳을 누르면 닫힌다.
+$('cutlineContent').addEventListener('click', event => {
+  const opener = event.target.closest?.('[data-open-dialog]');
+  if (opener) { document.getElementById(opener.dataset.openDialog)?.showModal?.(); return; }
+  if (event.target instanceof HTMLDialogElement) event.target.close();
+});
 const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, label]) => [
   key, createUsageLoader({ owner: () => session.user(), label,
     endpoint: key === MURDERCHAT ? MURDERCHAT_ENDPOINT : undefined,
@@ -699,7 +705,7 @@ const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, l
       if (state.src !== key) return;
       $('cutlineContent').innerHTML = data ? (key === MURDERCHAT ? renderMurderchatUsage(data) : renderUsage(data)) : '';
       $('cutlineNote').textContent = error || (key === MURDERCHAT
-        ? '최근 30일 · 한국 시간 · MURDERCHAT 서버의 API 요청과 입력·출력 토큰, 쿠폰 발급·사용 내역을 보여 줍니다.'
+        ? '최근 30일 · 한국 시간 · MURDERCHAT 서버의 방 플레이 기록, 계정별 코인·작품·AI 이용권, 쿠폰, API 사용량을 보여 줍니다.'
         : '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.');
       setStatus(error || `${label} 집계 불러옴`, error ? 'err' : 'live');
     }
