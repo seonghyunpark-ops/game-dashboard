@@ -699,7 +699,7 @@ const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, l
       if (state.src !== key) return;
       $('cutlineContent').innerHTML = data ? (key === MURDERCHAT ? renderMurderchatUsage(data) : renderUsage(data)) : '';
       $('cutlineNote').textContent = error || (key === MURDERCHAT
-        ? '최근 30일 · 한국 시간 · MURDERCHAT 서버의 API 요청과 입력·출력 토큰을 집계합니다.'
+        ? '최근 30일 · 한국 시간 · MURDERCHAT 서버의 API 요청과 입력·출력 토큰, 쿠폰 발급·사용 내역을 보여 줍니다.'
         : '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.');
       setStatus(error || `${label} 집계 불러옴`, error ? 'err' : 'live');
     }
