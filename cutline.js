@@ -1,3 +1,4 @@
+import {renderMurderchatTabs} from './murderchat-tabs.js';
 export const CUTLINE_ENDPOINT = 'https://asia-northeast3-cutline-antstudio.cloudfunctions.net/cutlineUsageDashboard';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const known = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
@@ -100,10 +101,11 @@ export function renderMurderchatUsage({ rows = [], coupons = null, plays = null,
   const bonusRows=(accounts?.rows||[]).flatMap(a=>(a.bonusHistory?.rows||[]).map(r=>'<tr><td>'+who(a)+'</td><td>'+esc(when(r.grantedAt))+'</td><td>'+(r.source==='attendance_ticket'?'7일차 뽑기':'출석')+'</td><td>'+orDash(r.amount)+'</td><td>'+orDash(r.used)+'</td><td>'+orDash(r.remaining)+'</td><td>'+esc(when(r.expiresAt))+'</td><td>'+orDash(r.expired)+'</td></tr>'));
   const attendancePart=table('출석 보상 현황',['계정','최근 출석일','연속 출석','누적 출석','지급 코인 · 조회 장부','잔여 보너스 코인'],attendanceRows.length?attendanceRows:['<tr><td colspan="6">조회된 출석 계정이 없습니다.</td></tr>'],'지급 합계는 조회된 장부 범위 기준이며, 누적 출석은 계정의 전체 출석 기록입니다.')
     +table('보너스 코인 발급·사용·소멸 내역',['계정','발급 시각','사유','발급','사용','잔여','소멸 시각','소멸 수량'],bonusRows.length?bonusRows:['<tr><td colspan="8">최근 30일 보너스 내역이 없거나 서버가 아직 내역을 제공하지 않습니다.</td></tr>'],'발급일부터 1개월(30일)간 보관·조회합니다. 한국 시간 기준입니다. 기능 적용 전에 이미 사용·소멸된 내역은 누락될 수 있습니다. 계정은 조회된 장부 범위 내에서 표시합니다.');
-  return attendancePart + playPart + accountPart + couponPart + table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
+  const aiPart = table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
     + table('일별 모델 사용량', ['날짜', '공급자', '모델', ...usageHeaders, '예상 비용'], details.length ? details : ['<tr><td colspan="9">아직 기록된 요청이 없습니다.</td></tr>'])
     + table('모델별 API 단가', ['모델', '입력', '출력'], prices,
       '2026년 11월 12일 기준 · 표준 유료 텍스트 토큰 100만 개당 USD. 예상 비용은 기록된 토큰에 이 단가를 적용한 값이며, 캐시 할인과 무료 사용량은 반영하지 않습니다.');
+  return renderMurderchatTabs({accounts:accountPart,plays:playPart,rewards:attendancePart,coupons:couponPart,ai:aiPart});
 }
 export function renderUsage(data = {}) {
   const s = data.storage || {}, b = data.bandwidth || {}, c = data.cost || {}, p = data.prices || {}, r = data.releases || {};
