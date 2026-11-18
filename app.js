@@ -9,6 +9,8 @@ const { joinIdentities } = await import(`./identity.js?v=${encodeURIComponent(VE
 const { createUsageLoader, renderUsage, renderMurderchatUsage, MURDERCHAT_ENDPOINT } = await import(`./cutline.js?v=${encodeURIComponent(VERSION)}`);
 const CUTLINE = 'cutline_usage';
 const MURDERCHAT = 'murderchat_usage';
+const {mountAccountDirectory}=await import(`./account-directory.js?v=${encodeURIComponent(VERSION)}`);
+let disposeAccountDirectory=()=>{};
 const usageLabels = { [CUTLINE]: 'Cutline', [MURDERCHAT]: 'MURDERCHAT' };
 const isUsage = key => Object.hasOwn(usageLabels, key);
 const GA = await import(`./ga4.js?v=${encodeURIComponent(VERSION)}`);
@@ -79,6 +81,7 @@ const session = createSession({
     G.forgetToken(G.SCOPE_AUTH); G.forgetToken(G.SCOPE_ADMOB); G.forgetToken(GA.SCOPE_GA); gaGeneration++;
     renderAuthBtn(session.user());
     financeStop?.(); financeStop = null; financeReports = {}; financeGeneration++;
+    disposeAccountDirectory();
     Object.values(usageLoaders).forEach(loader => loader.cancel());
     if (isUsage(state.src)) connectUsage();
     else if (isGa(state.src)) connectGa();
@@ -251,6 +254,7 @@ function renderTabs() {
 }
 
 function switchSource(key) {
+  disposeAccountDirectory();
   Object.values(usageLoaders).forEach(loader => loader.cancel()); gaGeneration++;
   state.src = key;
   save("src", key);
@@ -703,7 +707,9 @@ const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, l
     endpoint: key === MURDERCHAT ? MURDERCHAT_ENDPOINT : undefined,
     publish: ({data,error}) => {
       if (state.src !== key) return;
+      disposeAccountDirectory();
       $('cutlineContent').innerHTML = data ? (key === MURDERCHAT ? renderMurderchatUsage(data) : renderUsage(data)) : '';
+      if(data&&key===MURDERCHAT)disposeAccountDirectory=mountAccountDirectory($('cutlineContent'),{owner:()=>session.user(),endpoint:MURDERCHAT_ENDPOINT});
       $('cutlineNote').textContent = error || (key === MURDERCHAT
         ? '한국 시간 · 출석 보상, 보너스 코인 발급·소멸, 방 플레이, 계정별 코인·작품·AI CHAT 토큰, 쿠폰, API 사용량을 보여 줍니다. 조회 범위는 각 표의 안내를 확인하세요.'
         : '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.');
@@ -712,6 +718,7 @@ const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, l
   })
 ]));
 async function connectUsage() {
+  disposeAccountDirectory();
   const key = state.src, label = usageLabels[key];
   renderAuthBtn(session.user());
   $('cutlineContent').replaceChildren();
