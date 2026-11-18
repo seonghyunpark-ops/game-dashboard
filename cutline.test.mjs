@@ -73,7 +73,7 @@ test('MURDERCHAT 쿠폰 발급·사용 내역을 표로 보여 주고 값은 이
     uses: [{ code: 'OPEN2026', coins: 30, passes: 2, account: '3fa9c1d2', at: '2026-11-17T01:00:00Z' }],
   } });
   assert.match(html, /쿠폰 발급 내역/); assert.match(html, /쿠폰 사용 내역/);
-  assert.match(html, /코인 30 \+ AI 이용권 2/); assert.match(html, /2 \/ 제한 없음/);
+  assert.match(html, /코인 30 \+ AI CHAT 토큰 2/); assert.match(html, /2 \/ 제한 없음/);
   assert.match(html, /한 사람만/); assert.match(html, /모두 사용됨/); assert.match(html, /3fa9c1d2/);
   assert.ok(html.includes('&lt;b&gt;오픈&lt;/b&gt;') && !html.includes('<b>오픈</b>'));
   const empty = renderMurderchatUsage({ rows: [], coupons: { limit: 200, totals: {}, coupons: [], uses: [] } });
@@ -96,11 +96,17 @@ test('MURDERCHAT 방 플레이 기록과 계정별 내역을 표와 팝업으로
         passesBought: 5, passesUsed: 3, passesHeld: 4, vouchersUsed: 1, rooms: 2, lastAt: '2026-11-17T02:00:00Z',
         stories: [{ id: 's', title: '<u>산 작품</u>', priceCoins: 12, purchasedAt: '2026-11-17T00:02:00Z', vouchersLeft: 6 }] },
     ] } });
-  assert.match(html, /방 플레이 기록/); assert.match(html, /ABC234/); assert.match(html, /사람 2 · AI 2/); assert.match(html, /코인 14 · 이용권 1 · 참여권 0/);
+  assert.match(html, /방 플레이 기록/); assert.match(html, /ABC234/); assert.match(html, /사람 2 · AI 2/); assert.match(html, /코인 14 · AI CHAT 토큰 1 · 참여권 0/);
   assert.match(html, /1,000 \/ 200/); assert.match(html, /\$0\.0123/); assert.match(html, /\$0\.0000 이상/); assert.match(html, /OLD234/);
   assert.ok(html.includes('&lt;i&gt;작품&lt;/i&gt;') && !html.includes('<i>작품</i>') && !html.includes('<b>둘</b>') && !html.includes('<u>산 작품</u>'));
   assert.match(html, /data-open-dialog="mc-account-0"/); assert.match(html, /<dialog class="mc-dialog" id="mc-account-0"/);
   assert.match(html, /1편 보기/); assert.match(html, /12코인/); assert.match(html, /돈으로 산 코인/); assert.match(html, /5 \+ 쿠폰 2/);
   const empty = renderMurderchatUsage({ rows: [], plays: { limit: 200, rows: [] }, accounts: { ledgerLimit: 5000, rows: [] } });
   assert.match(empty, /아직 기록된 방이 없습니다/); assert.match(empty, /아직 코인이나 쿠폰을 쓴 계정이 없습니다/);
+});
+
+test('bonus and attendance tables show retained history and escape account labels', async()=>{
+ const {renderMurderchatUsage}=await import('./cutline.js');const html=renderMurderchatUsage({accounts:{rows:[{label:'<img src=x>',account:'abc12345',attendance:{lastDay:'2026-11-18',streak:3,total:10},bonusCoins:2,attendanceCoins:10,bonusHistory:{rows:[{source:'attendance',amount:5,used:3,remaining:0,expired:2,grantedAt:'2026-11-01T03:00:00Z',expiresAt:'2026-11-10T15:00:00Z'}]}}]}});
+ for(const text of ['출석 보상 현황','보너스 코인 발급·사용·소멸 내역','1개월(30일)','소멸 수량','AI CHAT 토큰','abc12345'])assert.ok(html.includes(text),text);
+ assert.ok(!html.includes('<img src=x>'));assert.ok(html.includes('&lt;img src=x&gt;'));
 });

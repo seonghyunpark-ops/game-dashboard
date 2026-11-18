@@ -60,14 +60,14 @@ export function renderMurderchatUsage({ rows = [], coupons = null, plays = null,
   const table = (title, headers, body, note = '') => `<section class="card cutline-section"><div class="card-h"><h2>${title}</h2></div>${note ? `<div class="note cutline-notice">${note}</div>` : ''}<div class="tablewrap"><table><thead><tr>${headers.map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div></section>`;
   // 쿠폰 발급·사용 내역. 서버가 아직 쿠폰 내역을 보내지 않으면(이전 버전) 안내만 보여 준다.
   const num = value => Number(value ?? 0).toLocaleString('ko-KR');
-  const gives = item => [item.coins ? `코인 ${num(item.coins)}` : '', item.passes ? `AI 이용권 ${num(item.passes)}` : ''].filter(Boolean).join(' + ') || '—';
+  const gives = item => [item.coins ? `코인 ${num(item.coins)}` : '', item.passes ? `AI CHAT 토큰 ${num(item.passes)}` : ''].filter(Boolean).join(' + ') || '—';
   const couponState = coupon => coupon.disabled ? '중지됨' : coupon.expiresAt && Date.now() >= Date.parse(coupon.expiresAt) ? '기간 만료' : coupon.maxUses != null && coupon.used >= coupon.maxUses ? '모두 사용됨' : '사용 가능';
-  const when = value => { const d = new Date(value); return Number.isFinite(d.getTime()) ? d.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; };
+  const when = value => { const d = new Date(value); return Number.isFinite(d.getTime()) ? d.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short', timeZone:'Asia/Seoul' }) : '—'; };
   const kpi = (value, label) => `<div class="kpi"><b>${esc(num(value))}</b><small>${esc(label)}</small></div>`;
   const t = coupons?.totals || {};
   const couponPart = !coupons
     ? table('쿠폰 발급·사용 내역', ['안내'], ['<tr><td>쿠폰 내역을 불러오지 못했습니다. MURDERCHAT 서버가 쿠폰 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
-    : `<section class="card cutline-section"><div class="card-h"><h2>쿠폰 요약</h2><span class="muted">최근 ${esc(num(coupons.limit))}건 기준</span></div><div class="kpis">${kpi(t.issued, '발급한 쿠폰')}${kpi(t.active, '지금 쓸 수 있는 쿠폰')}${kpi(t.redeemed, '사용된 횟수')}${kpi(t.coinsGiven, '나간 코인')}${kpi(t.passesGiven, '나간 AI 이용권')}</div></section>`
+    : `<section class="card cutline-section"><div class="card-h"><h2>쿠폰 요약</h2><span class="muted">최근 ${esc(num(coupons.limit))}건 기준</span></div><div class="kpis">${kpi(t.issued, '발급한 쿠폰')}${kpi(t.active, '지금 쓸 수 있는 쿠폰')}${kpi(t.redeemed, '사용된 횟수')}${kpi(t.coinsGiven, '나간 코인')}${kpi(t.passesGiven, '나간 AI CHAT 토큰')}</div></section>`
       + table('쿠폰 발급 내역', ['코드', '주는 것', '방식', '사용 / 수량', '상태', '기한', '메모', '만든 때', '만든 사람'],
         (coupons.coupons || []).length ? coupons.coupons.map(c => `<tr><td>${esc(c.code)}</td><td>${esc(gives(c))}</td><td>${c.mode === 'single' ? '한 사람만' : '계정마다 1회'}</td><td>${esc(num(c.used))} / ${c.maxUses == null ? '제한 없음' : esc(num(c.maxUses))}</td><td>${couponState(c)}</td><td>${c.expiresAt ? esc(when(c.expiresAt)) : '없음'}</td><td>${esc(c.note || '—')}</td><td>${esc(when(c.createdAt))}</td><td>${esc(c.createdBy || '—')}</td></tr>`) : ['<tr><td colspan="9">아직 발급한 쿠폰이 없습니다.</td></tr>'],
         '쿠폰은 MURDERCHAT 편집기의 「쿠폰」 버튼에서 발급합니다. 이 화면은 읽기 전용입니다.')
@@ -78,25 +78,29 @@ export function renderMurderchatUsage({ rows = [], coupons = null, plays = null,
   const usd = value => known(value) ? '$' + value.toFixed(4) : '미산정';
   const who = person => person ? `${esc(person.label)} <small class="muted">${esc(person.account ?? '')}</small>` : '기록 없음';
   const orDash = value => value == null ? '—' : esc(num(value));
-  const playRows = (plays?.rows || []).map(p => `<tr><td>${p.startedAt ? esc(when(p.startedAt)) : '기록 없음'}</td><td>${esc(p.roomCode || '—')}</td><td>${esc(p.storyTitle || '—')}</td><td>${who(p.host)}</td><td>${p.players ? p.players.map(m => `${esc(m.name)} (${esc(m.label)})`).join('<br>') : '기록 없음'}</td><td>${p.humans == null ? '—' : `사람 ${esc(num(p.humans))} · AI ${esc(num(p.bots))}`}</td><td>${p.coinsUsed == null ? '—' : `코인 ${esc(num(p.coinsUsed))} · 이용권 ${esc(num(p.passesUsed))} · 참여권 ${esc(num(p.vouchersUsed))}`}</td><td>${p.ai ? esc(num(p.ai.attempts)) : '0'}</td><td>${p.ai ? `${esc(num(p.ai.inputTokens))} / ${esc(num(p.ai.outputTokens))}` : '0 / 0'}</td><td>${p.ai ? usd(p.ai.costUsd) + (p.ai.costComplete ? '' : ' 이상') : '$0.0000'}</td></tr>`);
+  const playRows = (plays?.rows || []).map(p => `<tr><td>${p.startedAt ? esc(when(p.startedAt)) : '기록 없음'}</td><td>${esc(p.roomCode || '—')}</td><td>${esc(p.storyTitle || '—')}</td><td>${who(p.host)}</td><td>${p.players ? p.players.map(m => `${esc(m.name)} (${esc(m.label)})`).join('<br>') : '기록 없음'}</td><td>${p.humans == null ? '—' : `사람 ${esc(num(p.humans))} · AI ${esc(num(p.bots))}`}</td><td>${p.coinsUsed == null ? '—' : `코인 ${esc(num(p.coinsUsed))} · AI CHAT 토큰 ${esc(num(p.passesUsed))} · 참여권 ${esc(num(p.vouchersUsed))}`}</td><td>${p.ai ? esc(num(p.ai.attempts)) : '0'}</td><td>${p.ai ? `${esc(num(p.ai.inputTokens))} / ${esc(num(p.ai.outputTokens))}` : '0 / 0'}</td><td>${p.ai ? usd(p.ai.costUsd) + (p.ai.costComplete ? '' : ' 이상') : '$0.0000'}</td></tr>`);
   const playPart = !plays
     ? table('방 플레이 기록', ['안내'], ['<tr><td>방 플레이 기록을 불러오지 못했습니다. MURDERCHAT 서버가 이 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
     : table('방 플레이 기록', ['시작한 때', '방 코드', '작품', '방장 계정', '참가자', '자리', '시작할 때 쓴 것', 'AI 요청', '입력 / 출력 토큰', 'AI 비용'],
       playRows.length ? playRows : ['<tr><td colspan="10">아직 기록된 방이 없습니다.</td></tr>'],
       `최근 ${esc(num(plays.limit))}개 방입니다. 계정은 가운데를 가린 이메일과 8글자 표시값으로 보입니다. 이 기능을 배포하기 전에 한 방은 계정 기록이 없어 AI 사용량만 나옵니다. AI 비용은 기록된 토큰으로 계산한 추정값이며, "이상"은 단가를 모르는 요청이 섞여 있다는 뜻입니다.`);
-  // 계정별 내역: 코인 구매, 소장 작품(팝업), AI 이용권 구매와 사용.
+  // 계정별 내역: 코인 구매, 소장 작품(팝업), AI CHAT 토큰 구매와 사용.
   const storyDialog = (a, i) => `<dialog class="mc-dialog" id="mc-account-${i}" aria-labelledby="mc-account-title-${i}"><div class="card-h"><h2 id="mc-account-title-${i}">${esc(a.label)} <small class="muted">${esc(a.account)}</small></h2><form method="dialog"><button class="btn">닫기</button></form></div>
-    <div class="kpis">${kpi(a.coins, '보유 코인')}${kpi(a.coinsBought, '돈으로 산 코인')}${kpi(a.couponCoins, '쿠폰으로 받은 코인')}${kpi(a.coinsSpent, '쓴 코인')}${kpi(a.passesHeld, '보유 AI 이용권')}${kpi(a.passesBought, '산 AI 이용권')}${kpi(a.couponPasses, '쿠폰으로 받은 이용권')}${kpi(a.passesUsed, '쓴 AI 이용권')}</div>
-    <p class="note cutline-notice">쓴 코인 ${esc(num(a.coinsSpent))} = 작품 ${esc(num(a.coinsOnStories))} + AI 이용권 구매 ${esc(num(a.coinsOnPasses))} + 방 시작 ${esc(num(a.coinsOnRooms))} · 코인 결제 ${esc(num(a.purchases))}번 · 이용권을 낸 방 ${esc(num(a.rooms))}개 · 쓴 작품 참여권 ${esc(num(a.vouchersUsed))}장</p>
+    <div class="kpis">${kpi(a.coins, '일반 코인')}${kpi(a.bonusCoins, '보너스 코인')}${kpi(a.attendanceCoins, '출석 지급 코인 · 조회 장부')}${kpi(a.attendance?.total, '누적 출석 일수')}${kpi(a.coinsBought, '돈으로 산 코인')}${kpi(a.couponCoins, '쿠폰으로 받은 코인')}${kpi(a.coinsSpent, '쓴 코인')}${kpi(a.passesHeld, '보유 AI CHAT 토큰')}${kpi(a.passesBought, '산 AI CHAT 토큰')}${kpi(a.couponPasses, '쿠폰으로 받은 토큰')}${kpi(a.passesUsed, '쓴 AI CHAT 토큰')}</div>
+    <p class="note cutline-notice">쓴 코인 ${esc(num(a.coinsSpent))} = 작품 ${esc(num(a.coinsOnStories))} + AI CHAT 토큰 구매 ${esc(num(a.coinsOnPasses))} + 방 시작 ${esc(num(a.coinsOnRooms))} · 코인 결제 ${esc(num(a.purchases))}번 · 토큰을 낸 방 ${esc(num(a.rooms))}개 · 쓴 작품 참여권 ${esc(num(a.vouchersUsed))}장</p>
     <h3>소장한 작품 ${esc(num((a.stories || []).length))}편</h3>
     <div class="tablewrap"><table><thead><tr><th scope="col">작품</th><th scope="col">산 값</th><th scope="col">산 때</th><th scope="col">남은 참여권</th></tr></thead><tbody>${(a.stories || []).length ? a.stories.map(st => `<tr><td>${esc(st.title)}</td><td>${st.priceCoins == null ? '기록 없음' : esc(num(st.priceCoins)) + '코인'}</td><td>${st.purchasedAt ? esc(when(st.purchasedAt)) : '—'}</td><td>${esc(num(st.vouchersLeft))}장</td></tr>`).join('') : '<tr><td colspan="4">소장한 작품이 없습니다.</td></tr>'}</tbody></table></div></dialog>`;
   const accountRows = (accounts?.rows || []).map((a, i) => `<tr><td>${who(a)}</td><td>${esc(a.provider || '—')}</td><td>${esc(num(a.coins))}</td><td>${esc(num(a.coinsBought))}</td><td>${esc(num(a.couponCoins))}</td><td>${esc(num(a.coinsSpent))}</td><td><button type="button" class="btn" data-open-dialog="mc-account-${i}">${esc(num((a.stories || []).length))}편 보기</button>${storyDialog(a, i)}</td><td>${esc(num(a.passesBought))} + 쿠폰 ${esc(num(a.couponPasses))}</td><td>${esc(num(a.passesUsed))}</td><td>${esc(num(a.passesHeld))}</td><td>${a.lastAt ? esc(when(a.lastAt)) : '—'}</td></tr>`);
   const accountPart = !accounts
-    ? table('계정별 코인·작품·AI 이용권', ['안내'], ['<tr><td>계정별 내역을 불러오지 못했습니다. MURDERCHAT 서버가 이 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
-    : table('계정별 코인·작품·AI 이용권', ['계정', '로그인', '보유 코인', '돈으로 산 코인', '쿠폰 코인', '쓴 코인', '소장 작품', '산 AI 이용권', '쓴 AI 이용권', '보유 AI 이용권', '마지막 활동'],
+    ? table('계정별 코인·작품·AI CHAT 토큰', ['안내'], ['<tr><td>계정별 내역을 불러오지 못했습니다. MURDERCHAT 서버가 이 기능을 배포한 뒤에 표시됩니다.</td></tr>'])
+    : table('계정별 코인·작품·AI CHAT 토큰', ['계정', '로그인', '보유 코인', '돈으로 산 코인', '쿠폰 코인', '쓴 코인', '소장 작품', '산 AI CHAT 토큰', '쓴 AI CHAT 토큰', '보유 AI CHAT 토큰', '마지막 활동'],
       accountRows.length ? accountRows : ['<tr><td colspan="11">아직 코인이나 쿠폰을 쓴 계정이 없습니다.</td></tr>'],
       `코인 장부의 최근 ${esc(num(accounts.ledgerLimit))}줄을 계정별로 더한 값입니다.${accounts.truncated ? ' 장부가 이보다 길어 오래된 내역은 빠져 있습니다.' : ''} 「소장 작품」의 버튼을 누르면 그 계정이 산 작품 목록과 자세한 내역이 팝업으로 뜹니다. 코인이나 쿠폰을 한 번도 쓰지 않은 계정은 나오지 않습니다.`);
-  return playPart + accountPart + couponPart + table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
+  const attendanceRows=(accounts?.rows||[]).map(a=>'<tr><td>'+who(a)+'</td><td>'+esc(a.attendance?.lastDay||'—')+'</td><td>'+orDash(a.attendance?.streak)+'</td><td>'+orDash(a.attendance?.total)+'</td><td>'+orDash(a.attendanceCoins)+'</td><td>'+orDash(a.bonusCoins)+'</td></tr>');
+  const bonusRows=(accounts?.rows||[]).flatMap(a=>(a.bonusHistory?.rows||[]).map(r=>'<tr><td>'+who(a)+'</td><td>'+esc(when(r.grantedAt))+'</td><td>'+(r.source==='attendance_ticket'?'7일차 뽑기':'출석')+'</td><td>'+orDash(r.amount)+'</td><td>'+orDash(r.used)+'</td><td>'+orDash(r.remaining)+'</td><td>'+esc(when(r.expiresAt))+'</td><td>'+orDash(r.expired)+'</td></tr>'));
+  const attendancePart=table('출석 보상 현황',['계정','최근 출석일','연속 출석','누적 출석','지급 코인 · 조회 장부','잔여 보너스 코인'],attendanceRows.length?attendanceRows:['<tr><td colspan="6">조회된 출석 계정이 없습니다.</td></tr>'],'지급 합계는 조회된 장부 범위 기준이며, 누적 출석은 계정의 전체 출석 기록입니다.')
+    +table('보너스 코인 발급·사용·소멸 내역',['계정','발급 시각','사유','발급','사용','잔여','소멸 시각','소멸 수량'],bonusRows.length?bonusRows:['<tr><td colspan="8">최근 30일 보너스 내역이 없거나 서버가 아직 내역을 제공하지 않습니다.</td></tr>'],'발급일부터 1개월(30일)간 보관·조회합니다. 한국 시간 기준입니다. 기능 적용 전에 이미 사용·소멸된 내역은 누락될 수 있습니다. 계정은 조회된 장부 범위 내에서 표시합니다.');
+  return attendancePart + playPart + accountPart + couponPart + table('공급자별 API 사용량', ['공급자', ...usageHeaders], totals)
     + table('일별 모델 사용량', ['날짜', '공급자', '모델', ...usageHeaders, '예상 비용'], details.length ? details : ['<tr><td colspan="9">아직 기록된 요청이 없습니다.</td></tr>'])
     + table('모델별 API 단가', ['모델', '입력', '출력'], prices,
       '2026년 11월 12일 기준 · 표준 유료 텍스트 토큰 100만 개당 USD. 예상 비용은 기록된 토큰에 이 단가를 적용한 값이며, 캐시 할인과 무료 사용량은 반영하지 않습니다.');
