@@ -705,7 +705,7 @@ const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, l
       if (state.src !== key) return;
       $('cutlineContent').innerHTML = data ? (key === MURDERCHAT ? renderMurderchatUsage(data) : renderUsage(data)) : '';
       $('cutlineNote').textContent = error || (key === MURDERCHAT
-        ? '최근 30일 · 한국 시간 · MURDERCHAT 서버의 방 플레이 기록, 계정별 코인·작품·AI 이용권, 쿠폰, API 사용량을 보여 줍니다.'
+        ? '한국 시간 · 출석 보상, 보너스 코인 발급·소멸, 방 플레이, 계정별 코인·작품·AI CHAT 토큰, 쿠폰, API 사용량을 보여 줍니다. 조회 범위는 각 표의 안내를 확인하세요.'
         : '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.');
       setStatus(error || `${label} 집계 불러옴`, error ? 'err' : 'live');
     }
