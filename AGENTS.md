@@ -63,6 +63,7 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 ## GA 분석 탭 (2026-11-10, 앱별 확장 11-11)
 - `ga4.js` — `SOURCES`에 넣지 않는 별도 탭. `config.js`의 `GA4.apps`에서 `propertyId`가 있는 앱마다 그 앱 묶음에 'GA 분석' 탭이 생긴다. `web:true`(blaiva)는 탐색 단계·행동 표, 게임 앱은 많이 일어난 이벤트·화면 이름 표. 관리 계정 로그인 뒤 'GA 불러오기'로 `analytics.readonly` OAuth 토큰(메모리)을 받아 GA Data API `batchRunReports`를 직접 부른다. 서버·비밀값 없음.
 - 설정: `GA4.apps[].propertyId`(숫자 속성 ID). Data API는 OAuth 클라이언트 프로젝트에서 한 번만 켜면 모든 앱 속성에 쓰인다. 보는 Google 계정에 GA 속성 뷰어 권한, OAuth 클라이언트 프로젝트 `hazel-form-493202-a1`에서 Google Analytics Data API 사용 설정, OAuth 동의 화면에 `analytics.readonly` 범위 추가가 필요하다.
+- AI 제외(2026-11-20): 같은 요청을 `sessionDefaultChannelGroup != "AI Assistant"` 조건으로 한 번 더 불러(배치당 5개 제한이라 2회 동시 호출) 방문자·방문 카드와 단계·행동·이벤트·화면·날짜 표의 사람 수 옆에 'AI 제외' 칸을 붙인다. 그 조회만 실패하면 칸 없이 기존 표를 보여 준다.
 - 표시: 방문자·세션·1인 평균 참여 시간·방문당 화면 수, 탐색 단계(depth_2/3/5/10 이벤트, blaiva `web/src/traffic-policy.mjs`와 같은 이름), 재생·찜, 유입 채널·출처, 많이 본 화면, 날짜별. 검사: `ga4.test.mjs`.
 ## MURDERCHAT 쿠폰 내역 (2026-11-17)
 - MURDERCHAT 탭은 사용량과 같은 응답(`chatmurderUsageDashboard`)의 `coupons`(합계 `totals`, 발급 내역 `coupons`, 사용 내역 `uses`)로 쿠폰 요약·발급 내역·사용 내역 표를 그린다(`cutline.js`의 `renderMurderchatUsage`). 읽기 전용이다. 쿠폰 발급은 MURDERCHAT 편집기에서 한다.

@@ -44,3 +44,34 @@ test("게임 앱은 이벤트 순위와 화면 이름으로", () => {
   const html = renderReport(d);
   assert.ok(html.includes("많이 일어난 이벤트")); assert.ok(!html.includes("몇 단계까지"));
 });
+test("AI Assistant 제외 요청은 기존 필터와 AND로 묶음", () => {
+  const r = buildRequests(28, { excludeAi: true });
+  assert.equal(r.length, 5);
+  assert.equal(r[0].dimensionFilter.notExpression.filter.stringFilter.value, "AI Assistant");
+  assert.equal(r[3].dimensionFilter.andGroup.expressions.length, 2);
+  assert.equal(r[4].limit, 200);
+  assert.equal(buildRequests(28)[0].dimensionFilter, undefined);
+});
+test("항목마다 AI 제외 방문자 수를 짝지어 표시", async () => {
+  const noAi = [
+    rep([], totals, [[[], [70, 100, 6000, 120, 2.5, 0.6]]]),
+    rep(["date"], totals, [[["20261117"], [7, 9, 400, 80, 2, 0.5]]]),
+    rep(["sessionDefaultChannelGroup", "sessionSource"], ["sessions", "activeUsers", "userEngagementDuration", "screenPageViewsPerSession"], []),
+    rep(["eventName"], ["totalUsers", "eventCount"], [[["page_view"], [70, 300]], [["depth_2"], [40, 40]]]),
+    rep(["pagePath"], ["screenPageViews", "activeUsers", "userEngagementDuration"], [[["/v/<x>"], [30, 12, 200]]]),
+  ];
+  const d = summarize(sample, { noAiReports: noAi });
+  assert.equal(d.totals.usersNoAi, 70); assert.equal(d.totals.sessionsNoAi, 100);
+  assert.equal(d.steps[0].usersNoAi, 70); assert.equal(d.steps[1].usersNoAi, 40); assert.equal(d.steps[2].usersNoAi, 0);
+  assert.equal(d.actions[0].usersNoAi, 0);
+  assert.equal(d.pages[0].usersNoAi, 12); assert.equal(d.daily[0].usersNoAi, 7);
+  const html = renderReport(d);
+  assert.ok(html.includes("<th>AI 제외</th>")); assert.ok(html.includes("방문자(AI Assistant 유입 제외)"));
+  assert.ok(!renderReport(summarize(sample)).includes("AI 제외"));
+  // 두 번 부르고, AI 제외 쪽만 실패하면 기존 표는 그대로
+  const bodies = [];
+  const fetcher = async (_url, init) => { const req = JSON.parse(init.body).requests; bodies.push(req); const ex = !!req[0].dimensionFilter;
+    return ex ? { ok: false, status: 400, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ reports: sample }) }; };
+  const r = await fetchReport("t", "1", 28, fetcher);
+  assert.equal(bodies.length, 2); assert.equal(r.hasNoAi, undefined); assert.equal(r.totals.users, 100);
+});
