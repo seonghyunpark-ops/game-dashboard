@@ -232,7 +232,8 @@ function renderTabs() {
   // GA 탭은 Firestore 컬렉션이 아니라 GA Data API를 읽으므로 SOURCES 밖에서 blaiva 묶음에 붙입니다.
   for (const app of Object.values(GA_APPS)) groups.get(app.group)?.push(app.key);
   groups.set("재무 총합", FINANCE);
-  for (const [key, label] of Object.entries(usageLabels)) groups.set(label, [key]);
+  // 사용량 탭 묶음(MURDERCHAT 등)에도 같은 이름의 GA 분석 탭을 붙인다.
+  for (const [key, label] of Object.entries(usageLabels)) groups.set(label, [key, ...Object.values(GA_APPS).filter(app => app.group === label).map(app => app.key)]);
   const selected = isUsage(state.src) ? usageLabels[state.src] : isGa(state.src) ? GA_APPS[state.src].group : FINANCE.includes(state.src) ? "재무 총합" : src().group || src().label;
   $("tabs").replaceChildren(); $("subtabs").replaceChildren();
   for (const [group, keys] of groups) {
@@ -247,7 +248,7 @@ function renderTabs() {
   $("subtabs").hidden = children.length < 2;
   for (const key of children) {
     const b = document.createElement("button");
-    b.textContent = (isGa(key) && GA4.tabLabel) || financeLabels[key] || SOURCES[key]?.tabLabel || SOURCES[key]?.label;
+    b.textContent = (isGa(key) && GA4.tabLabel) || (isUsage(key) && '운영 현황') || financeLabels[key] || SOURCES[key]?.tabLabel || SOURCES[key]?.label;
     b.className = key === state.src ? "on" : "";
     b.setAttribute("aria-pressed", String(key === state.src));
     b.onclick = () => switchSource(key);

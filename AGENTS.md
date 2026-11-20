@@ -72,3 +72,6 @@ Firebase(Firestore)에 쌓인 게임 데이터를 실시간으로 보는 정적 
 - 계정별 표의 「소장 작품」 버튼은 `<dialog class="mc-dialog">` 팝업을 연다. 여는 처리는 `app.js`의 `cutlineContent` 클릭 처리(`data-open-dialog`)에 있다.
 - 계정은 서버가 가운데를 가린 이메일과 8글자 표시값으로만 보낸다. 원래 식별값이나 전체 이메일을 화면에 내보내지 않는다.
 - 서버가 `plays`·`accounts`를 보내지 않으면(배포 전) 안내 문구만 보여 준다. 배포 전에 한 방은 계정 기록이 없어 AI 사용량만 나온다.
+## MURDERCHAT 접속 통계·AI 비용 합계 (2026-11-20)
+- MURDERCHAT 묶음에 「운영 현황」(기존 사용량 탭)과 「GA 분석」 탭이 함께 보인다. GA 속성: theantbiz 계정의 「머더미스터리챗」(속성 ID 565262042, 웹 스트림 측정 ID G-XBKLSN0DWP). 게임 앱 표(`web:false`) 형식으로 이벤트·화면 이름을 보여 준다. `app.js` `renderTabs`가 사용량 묶음에도 같은 그룹 이름의 GA 앱을 붙인다.
+- 「AI 사용량」 탭 맨 위에 AI 예상 비용(오늘·최근 7일·최근 30일·이번 달 예상), 작품별 AI 사용량, 계정별 AI 사용량 표가 있다. 계산은 `murderchat-ai.js`(검사 `murderchat-ai.test.mjs`). 작품별·계정별은 `plays.rows`(최근 200개 방)를 더한 값이고, 계정별 비용은 방장에게 붙인다. 원화는 `USD_KRW`(1400) 어림값.
