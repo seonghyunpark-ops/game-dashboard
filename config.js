@@ -31,6 +31,8 @@ export const GA4 = {
     { key: "egypt_ga", group: "이집트 디펜스", propertyId: "" },
     { key: "lumiclass_ga", group: "캠퍼스마루", propertyId: "" },
     { key: "aicena_ga", group: "AICENA", propertyId: "" },
+    // 머더미스터리챗 웹(murdermysterychat.com, 측정 ID G-XBKLSN0DWP). theantbiz 계정 속성, 2026-11-20 생성.
+    { key: "murderchat_ga", group: "MURDERCHAT", propertyId: "565262042" },
   ],
 };
 
