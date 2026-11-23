@@ -54,3 +54,14 @@ test('로그아웃하면 늦게 온 응답을 버린다', async () => {
   await loader.load();
   assert.ok(!out.some(v => v.data));
 });
+
+test('정산일은 그다음 달 10일이다', async () => {
+  const { payDay } = await import('./murderchat-creators.js');
+  assert.equal(payDay('2026-11'), '2026-12-10');
+  assert.equal(payDay('2026-12'), '2027-01-10');
+  assert.equal(payDay(null), '—');
+  const html = renderCreatorReport(sample);
+  assert.match(html, /지난달분 · 2026-11-10 정산/);
+  assert.match(html, /이번 달분 · 2026-12-10 정산 예정/);
+  assert.match(html, /<td>2026-12-10<\/td>/);
+});
