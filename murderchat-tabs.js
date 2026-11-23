@@ -1,4 +1,4 @@
-export const murderchatTabs=[['accounts','계정 · 재화'],['plays','플레이 기록'],['rewards','출석 · 보상'],['coupons','쿠폰'],['ai','AI 사용량']];
+export const murderchatTabs=[['accounts','계정 · 재화'],['plays','플레이 기록'],['rewards','출석 · 보상'],['coupons','쿠폰'],['ai','AI 사용량'],['creators','크리에이터']];
 export function renderMurderchatTabs(panels){
  return '<div class="mc-tabs" role="tablist" aria-label="머더미스터리 관리 패널">'+murderchatTabs.map(([id,label],i)=>`<button class="btn" type="button" role="tab" id="mc-tab-${id}" data-mc-tab="${id}" aria-controls="mc-panel-${id}" aria-selected="${i===0}" tabindex="${i===0?0:-1}">${label}</button>`).join('')+'</div>'+murderchatTabs.map(([id],i)=>`<div role="tabpanel" id="mc-panel-${id}" aria-labelledby="mc-tab-${id}" tabindex="0" ${i?'hidden':''}>${panels[id]||''}</div>`).join('');
 }

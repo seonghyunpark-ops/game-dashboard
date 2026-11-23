@@ -12,6 +12,7 @@ const MURDERCHAT = 'murderchat_usage';
 const {mountAccountDirectory}=await import(`./account-directory.js?v=${encodeURIComponent(VERSION)}`);
 let disposeAccountDirectory=()=>{};
 const {mountMurderchatTabs}=await import(`./murderchat-tabs.js?v=${encodeURIComponent(VERSION)}`);
+const {mountCreatorPanel}=await import(`./murderchat-creators.js?v=${encodeURIComponent(VERSION)}`);
 let selectedMurderchatTab='accounts';
 const usageLabels = { [CUTLINE]: 'Cutline', [MURDERCHAT]: 'MURDERCHAT' };
 const isUsage = key => Object.hasOwn(usageLabels, key);
@@ -713,11 +714,14 @@ const usageLoaders = Object.fromEntries(Object.entries(usageLabels).map(([key, l
       disposeAccountDirectory();
       $('cutlineContent').innerHTML = data ? (key === MURDERCHAT ? renderMurderchatUsage(data) : renderUsage(data)) : '';
       if(data&&key===MURDERCHAT){
-        mountMurderchatTabs($('cutlineContent'),{selected:selectedMurderchatTab,onSelect:id=>{selectedMurderchatTab=id;}});
-        disposeAccountDirectory=mountAccountDirectory($('mc-panel-accounts'),{owner:()=>session.user(),endpoint:MURDERCHAT_ENDPOINT});
+        // 크리에이터 탭은 처음 열 때만 따로 불러온다(view=creators).
+        const creators=mountCreatorPanel($('mc-panel-creators'),{owner:()=>session.user(),endpoint:MURDERCHAT_ENDPOINT});
+        const disposeDirectory=mountAccountDirectory($('mc-panel-accounts'),{owner:()=>session.user(),endpoint:MURDERCHAT_ENDPOINT});
+        disposeAccountDirectory=()=>{disposeDirectory();creators.dispose();disposeAccountDirectory=()=>{};};
+        mountMurderchatTabs($('cutlineContent'),{selected:selectedMurderchatTab,onSelect:id=>{selectedMurderchatTab=id;if(id==='creators')creators.show();}});
       }
       $('cutlineNote').textContent = error || (key === MURDERCHAT
-        ? '한국 시간 · 출석 보상, 보너스 코인 발급·소멸, 방 플레이, 계정별 코인·작품·AI CHAT 토큰, 쿠폰, API 사용량을 보여 줍니다. 조회 범위는 각 표의 안내를 확인하세요.'
+        ? '한국 시간 · 출석 보상, 보너스 코인 발급·소멸, 방 플레이, 계정별 코인·작품·AI CHAT 토큰, 쿠폰, API 사용량, 크리에이터 작품·판매를 보여 줍니다. 조회 범위는 각 표의 안내를 확인하세요.'
         : '읽기 전용 · 매시간 수집한 최신 스냅샷입니다. 정보 업데이트로 다시 조회할 수 있습니다.');
       setStatus(error || `${label} 집계 불러옴`, error ? 'err' : 'live');
     }
